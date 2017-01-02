@@ -87,6 +87,31 @@ section .text
 	systemcall
         next
 
+        primitive ERRORQUIT, 'ERRORQUIT', 0
+        mov ebx, 1
+        mov eax, 1
+        systemcall
+        next
+
+        forthword FAIL, 'FAIL', 0
+        dd WRITE, ERRORQUIT
+
+        primitive SWAP, 'SWAP', 0
+        pop eax
+        pop ebx
+        push eax
+        push ebx
+        next
+
+        primitive SWAPD, 'SWAPD', 0
+        pop eax
+        pop ebx
+        pop ecx
+        push ebx
+        push ecx
+        push eax
+        next
+        
 	primitive DUP, 'DUP', 0
 	mov eax, dword [esp]
 	push eax
@@ -274,6 +299,13 @@ section .text
         dd DROP2, DROP2, LIT, -1, EXIT
         dd LIT, -31, BRANCH
 
+        stringconst WHITESPACE, {32, 13, 10, 9}
+
+        forthword WHITESPACEP, 'WHITESPACE?', 0
+        dd WHITESPACE, ROT, CHARINDEX
+        dd LIT, -1, NOTEQUALP
+        dd EXIT
+
         
 ;;;
 ;;; Memory access
@@ -319,28 +351,32 @@ section .text
 ;;; I/O words
 ;;;
 
-section .data
+section .bss
 internal_var_eof:
-	dd 0
+	resd 1
 section .text	
 	
 	primitive EMIT, 'EMIT', 0
 	mov ebx, 1
-        mov ecx, esp		; cbuf is 1 character on the stack
+        mov ecx, esp    	; cbuf is 1 character on the stack
 	mov edx, 1
         mov eax, 4
 	systemcall
 	pop eax			; remove character from stack
         next
 
+        forthword NL, 'NL', 0
+        dd LIT, 10, EMIT
+        dd EXIT
+
 	primitive KEY, 'KEY', 0
-	push 0			; make room on stack for character
+	push dword 0		; make room on stack for character
 	mov ebx, 1
-        mov ecx, esp		; cbuf
+        mov ecx, esp            ; cbuf
 	mov edx, 1
         mov eax, 3
 	systemcall
-	mov dword [internal_var_eof], eax
+        mov dword [internal_var_eof], eax
         next
 
 	primitive EOF, 'EOF', 0
@@ -348,6 +384,8 @@ section .text
 	next
 
         forthword WRITE, 'WRITE', 0
+        dd DUP, LIT, 1, BRANCHNZ
+        dd EXIT
         dd LIT, 0
         dd LIT, 2, PICK, OVER
         dd PLUS, READ1, EMIT, ONEPLUS
@@ -362,20 +400,50 @@ section .text
         dd NIP, NIP, EOF, EXIT
         dd DROP, LIT, -23, BRANCH
 
+
+;;;
+;;; Outer interpreter
+;;; 
+
+        
+section .bss
+internal_var_tokbuff:
+        resb 16
+
+section .text
+        
+        primitive TOKENBUFF, 'TOKENBUFF', 0
+        push internal_var_tokbuff
+        next
+        
+        stringconst ERRLONGTOK, {'ERR: token too long (limit 15)', 10}
+
+        forthword READTOKEN, 'READTOKEN', 0
+        dd LIT, 4, BRANCHNZ
+        dd TOKENBUFF, LIT, 0, EXIT
+        dd LIT, 0
+        dd DUP, TOKENBUFF, PLUS, SWAPD, STORE1, ONEPLUS
+        dd DUP, LIT, 16, LESSTHANP, LIT, 2, BRANCHZ
+        dd ERRLONGTOK, FAIL
+        dd KEY, EOF, LIT, 4, BRANCHNZ
+        dd DROP, TOKENBUFF, SWAP, EXIT
+        dd DUP, WHITESPACEP, LIT, 4, BRANCHNZ
+        dd DROP, TOKENBUFF, SWAP, EXIT
+        dd SWAP, LIT, -37, BRANCH
+
         
 ;;;
 ;;; Main
 ;;;
 
-        stringconst WHITESPACE, {32, 13, 10, 9}
-        stringconst MAIN2INTRO, {'Keep typing and I will echo all non-whitespace input:',10}
+        stringconst TOKPROMPT, 'Found Token: '
         
-	forthword MAIN, 'MAIN', 0
-	dd MAIN2INTRO, WRITE
-        dd WHITESPACE, DISCARD
-        dd LIT, 1, BRANCHNZ
+        forthword MAIN, 'MAIN', 0
+        dd WHITESPACE, DISCARD, READTOKEN
+        dd DUP, LIT, 1, BRANCHNZ
         dd QUIT
-        dd EMIT, LIT, -10, BRANCH
+        dd TOKPROMPT, WRITE, WRITE, NL
+        dd LIT, -15, BRANCH
 
 bootstrap:
 	dd MAIN
