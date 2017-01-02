@@ -3,10 +3,11 @@
 %else
 %define STARTSYMBOL _start        
 %endif        
-        
+
 ;; linux 32-bit style syscall abi handler:
-;; * params in: ebx, ecx, edx
-;; * supports a maximum of 3 parameters
+;; * pass syscall number in eax
+;; * pass params in: ebx, ecx, edx
+;; * supports syscalls having upto 3 parameter 
 %macro systemcall 0
 %ifdef OSX
         push edx
@@ -98,6 +99,15 @@ section .text
 	push eax
 	next
 
+        primitive DUP3, '3DUP', 0
+        mov eax, dword [esp+8]
+	push eax
+	mov eax, dword [esp+8]
+	push eax
+	mov eax, dword [esp+8]
+	push eax
+        next
+
 	primitive DROP, 'DROP', 0
 	pop eax
 	next
@@ -106,6 +116,12 @@ section .text
 	pop eax
 	pop eax
 	next
+
+        primitive DROP3, '3DROP', 0
+        pop eax
+        pop eax
+        pop eax
+        next
 
 	primitive OVER, 'OVER', 0
 	mov eax, dword [esp + 4]
@@ -117,6 +133,21 @@ section .text
 	pop ebx
 	push eax
 	next
+
+        primitive ROT, 'ROT', 0
+        pop ecx
+        pop ebx
+        pop eax
+        push ebx
+        push ecx
+        push eax
+        next
+
+        primitive PICK, 'PICK', 0
+        pop eax
+        mov ebx, dword [esp + 4*eax]
+        push ebx
+        next
 
 	primitive EQUALP, '=', 0
 	pop eax
@@ -140,6 +171,28 @@ NOTEQUALP_true:
 	push 1
 	next
 
+        primitive LESSTHANP, '<', 0
+        pop ebx
+        pop eax
+        cmp eax, ebx
+        jb LESSTHANP_true
+        push 1
+        next
+LESSTHANP_true:
+        push 0
+        next
+
+        primitive GREATERTHANP, '>', 0
+        pop ebx
+        pop eax
+        cmp eax, ebx
+        ja GREATERTHANP_true
+        push 1
+        next
+GREATERTHANP_true:
+        push 0
+        next
+
         primitive LIT, 'LIT', 0
         push dword [esi]
         add esi, 4
@@ -150,13 +203,23 @@ NOTEQUALP_true:
 	lea esi, [esi + 4*eax]
 	next
 
-	primitive BRANCHZ, '0BRANCH', 0
+	primitive BRANCHZ, 'BRANCHZ', 0
 	pop eax			; offset
 	pop ebx			; value
 	cmp ebx, 0
 	jz BRANCHZ_jump
 	next
 BRANCHZ_jump:
+	lea esi, [esi + 4*eax]
+	next
+
+        primitive BRANCHNZ, 'BRANCHNZ', 0
+	pop eax			; offset
+	pop ebx			; value
+	cmp ebx, 0
+	jnz BRANCHZ_jump
+	next
+BRANCHNZ_jump:
 	lea esi, [esi + 4*eax]
 	next
 
@@ -182,6 +245,36 @@ BRANCHZ_jump:
 	sub dword [esp], eax
 	next
 
+;;;
+;;; String words
+;;;
+
+
+%macro stringconst 2
+section .data
+str_data_%1:	db %2
+str_len_%1:     equ $-str_data_%1
+section .text
+	%defstr variable_name %1
+	primitive %1, variable_name, 0
+	push str_data_%1
+        push str_len_%1
+	next
+%endmacro
+
+        forthword CHARINDEX, 'CHARINDEX', 0
+        dd ROT
+        dd LIT, 0
+        dd DUP2, PLUS, READ1
+        dd LIT, 3, PICK, EQUALP
+        dd LIT, 4, BRANCHNZ
+        dd NIP, NIP, NIP, EXIT
+        dd ONEPLUS, LIT, 3, PICK, OVER, GREATERTHANP
+        dd LIT, 5, BRANCHZ
+        dd DROP2, DROP2, LIT, -1, EXIT
+        dd LIT, -31, BRANCH
+
+        
 ;;;
 ;;; Memory access
 ;;;
@@ -254,43 +347,39 @@ section .text
 	push dword [internal_var_eof]
 	next
 
+        forthword WRITE, 'WRITE', 0
+        dd LIT, 0
+        dd LIT, 2, PICK, OVER
+        dd PLUS, READ1, EMIT, ONEPLUS
+        dd DUP2, EQUALP, LIT, -13, BRANCHNZ
+        dd DROP3, EXIT
+
+        forthword DISCARD, 'DISCARD', 0
+	dd KEY, EOF, LIT, 2, BRANCHNZ
+        dd EOF, EXIT
+        dd DUP3, CHARINDEX, LIT, -1, EQUALP
+        dd LIT, 4, BRANCHNZ
+        dd NIP, NIP, EOF, EXIT
+        dd DROP, LIT, -23, BRANCH
+
+        
 ;;;
-;;; FORTH words
+;;; Main
 ;;;
 
-	
-	forthword DISCARD, 'DISCARD', 0
-	dd KEY, DUP2, EQUALP
-	dd LIT, -6, BRANCHZ
-	dd NIP, EXIT
-
-        forthword HELLO, 'HELLO', 0
-	dd LIT, 72, EMIT	; H
-	dd LIT, 69, EMIT	; E
-	dd LIT, 76, EMIT        ; L
-	dd LIT, 76, EMIT	; L
-	dd LIT, 79, EMIT	; O
-	dd LIT, 10, EMIT	; \n
-	dd EXIT
-
-	variable TEST
-	
+        stringconst WHITESPACE, {32, 13, 10, 9}
+        stringconst MAIN2INTRO, {'Keep typing and I will echo all non-whitespace input:',10}
+        
 	forthword MAIN, 'MAIN', 0
-	dd LIT, 5
-	dd LIT, 5, TEST, STORE4	; store 5 in TEST
-	dd TEST, READ4, PLUS	; TEST + 5 = 10
-	dd HELLO, ONEMINUS	; loop step and decrement count
-	dd DUP, LIT, 3, BRANCHZ	; break loop
-	dd LIT, -9, BRANCH	; loop
-	dd QUIT
-
-	forthword MAIN2, 'MAIN2', 0
-	dd LIT, 32, DISCARD
-	dd EMIT
-	dd QUIT
+	dd MAIN2INTRO, WRITE
+        dd WHITESPACE, DISCARD
+        dd LIT, 1, BRANCHNZ
+        dd QUIT
+        dd EMIT, LIT, -10, BRANCH
 
 bootstrap:
 	dd MAIN
+        
 STARTSYMBOL:
         mov ebp, return_stack_base	
         mov esi, bootstrap
@@ -299,7 +388,7 @@ STARTSYMBOL:
 	
 section .bss
 return_stack_base:
-        resw 1	 	; return stack with a capacity of 200 items
-        resw 200 	; (grows downwards, i.e. low memory -> high memory)
+        resd 1	 	; return stack with a capacity of 200 items
+        resd 200 	; (grows downwards, i.e. low memory -> high memory)
 alloc_base:	
-	resw 1000	; space for 1000 double words
+	resd 1000	; space for 1000 double words
