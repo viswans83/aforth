@@ -51,7 +51,7 @@
 %1:
         dd %1_asm
 %1_asm:
-%define lastword %1_dict_entry
+%define lastword %1
 %endmacro        
         
 global STARTSYMBOL
@@ -78,7 +78,7 @@ section .text
         db %3
 %1:
         dd DOCOL_asm
-%define lastword %1_dict_entry
+%define lastword %1
 %endmacro
 
 	primitive QUIT, 'QUIT', 0
@@ -370,6 +370,39 @@ section .text
         dd DROP2, DROP2, LIT, -1, EXIT
         dd LIT, -31, BRANCH
 
+        primitive CSTRLEN, 'CSTRLEN', 0
+        pop ebx
+        mov edi, ebx
+        mov al, 0
+        repne scasb
+        sub edi, ebx
+        push edi
+        next
+
+        primitive STREQP, 'STR=', 0
+        push ebp
+        mov ebp, esp
+        push esi
+        mov ebx, dword [ebp+4]
+        mov edi, dword [ebp+8]
+        mov eax, dword [ebp+12]
+        mov esi, dword [ebp+16]
+        cmp eax, ebx
+        jne STREQP_notequal
+        mov ecx, eax
+        repe cmpsb
+        jne STREQP_notequal
+        mov eax, 0
+        jmp STREQP_done
+STREQP_notequal:
+        mov eax, 1
+STREQP_done:
+        pop esi
+        pop ebp
+        add esp, 16
+        push eax
+        next
+
         stringconst WHITESPACE, {32, 13, 10, 9}
 
         forthword WHITESPACEP, 'WHITESPACE?', 0
@@ -407,9 +440,9 @@ section .text
 	next
 
 %macro variable 1
-section .data
+section .bss
 var_data_%1:	
-	dd 0
+	resd 1
 section .text
 	%defstr variable_name %1
 	primitive %1, variable_name, 0
@@ -546,31 +579,55 @@ section .text
         dd SIGNANDNUMSTR, STRTOPOSINT, SIGNED
         dd EXIT
 
+        forthword PREVWORD, 'PREVWORD', 0
+        dd LIT, 20, MINUS, READ4
+        dd EXIT
+
+        forthword WORDTONAME, 'WORD>NAME', 0
+        dd LIT, 16, MINUS
+        dd EXIT
+
+        forthword WORDTOSTR, 'WORD>STR', 0
+        dd WORDTONAME, DUP, CSTRLEN
+        dd EXIT
+
+        forthword FINDWORD, 'FINDWORD', 0
+        dd DUP, PREVWORD
+        dd OVER, WORDTONAME, LIT, 3, PICK
+        dd LIT, 5, PICK, LIT, 5, PICK
+        dd STREQP
+        dd LIT, 4, BRANCHNZ
+        dd DROP, NIP, NIP, EXIT
+        dd NIP, LIT, -25, BRANCH
+
+        variable LATEST
+
+        forthword LATESTWORD, 'LATESTWORD', 0
+        dd LATEST, READ4
+        dd EXIT
+        
+        forthword WORDF, 'WORD', 0
+        dd LATESTWORD, FINDWORD
+        dd EXIT
+        
         
 ;;;
 ;;; Main
 ;;;
 
-        forthword SCANNUM, 'SCANNUM', 0
-        dd SCANTOKEN, DUP, LIT, 1, BRANCHNZ
-        dd QUIT
-        dd STRTONUM, EXIT
+        stringconst ANAME, '+'
+        stringconst NOTFOUND, 'Not Found'
 
-        stringconst INTRO, 'Input some numbers: '
-        stringconst EQS, 'Equal'
-        stringconst NEQS, 'Not Equal'
-        
         forthword MAIN, 'MAIN', 0
-        dd INTRO, WRITE, NL
-        dd EQS, NEQS
-        dd SCANNUM, SCANNUM, EQUALP
-        dd CHOOSE2, WRITE, NL
-        dd LIT, -11, BRANCH
+        dd ANAME, LATESTWORD, FINDWORD
+        dd WRITE, NL, QUIT
         
 bootstrap:
 	dd MAIN
-        
+
 STARTSYMBOL:
+        mov eax, lastword
+        mov dword [var_data_LATEST], eax
         mov ebp, return_stack_base	
         mov esi, bootstrap
         next
