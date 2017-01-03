@@ -94,7 +94,7 @@ section .text
         next
 
         forthword FAIL, 'FAIL', 0
-        dd WRITE, ERRORQUIT
+        dd NL, WRITE, NL, ERRORQUIT
 
         primitive SWAP, 'SWAP', 0
         pop eax
@@ -159,6 +159,14 @@ section .text
 	push eax
 	next
 
+        primitive NIP2, '2NIP', 0
+        pop ebx
+        pop eax
+        add esp, 8
+        push eax
+        push ebx
+        next
+
         primitive ROT, 'ROT', 0
         pop ecx
         pop ebx
@@ -166,6 +174,15 @@ section .text
         push ebx
         push ecx
         push eax
+        next
+
+        primitive ROTR, '-ROT', 0
+        pop ecx
+        pop ebx
+        pop eax
+        push ecx
+        push eax
+        push ebx
         next
 
         primitive PICK, 'PICK', 0
@@ -248,6 +265,16 @@ BRANCHNZ_jump:
 	lea esi, [esi + 4*eax]
 	next
 
+        forthword CHOOSE, '?', 0
+        dd LIT, 2, BRANCHNZ
+        dd DROP, EXIT
+        dd NIP, EXIT
+
+        forthword CHOOSE2, '2?', 0
+        dd LIT, 2, BRANCHNZ
+        dd DROP2, EXIT
+        dd NIP2, EXIT
+
 ;;; 
 ;;; Arithmetic words
 ;;; 
@@ -269,6 +296,50 @@ BRANCHNZ_jump:
 	pop eax
 	sub dword [esp], eax
 	next
+
+        primitive MULTIPLY, 'MUL', 0
+        pop eax
+        pop ebx
+        mul ebx
+        push eax
+        next
+
+
+;;;
+;;; Logic words
+;;;
+
+        primitive BOOLAND, 'AND', 0
+        pop ebx
+        pop eax
+        cmp eax, 0
+        je BOOLAND_2nd
+        push eax
+        next
+BOOLAND_2nd:
+        push ebx
+        next
+
+        primitive BOOLOR, 'OR', 0
+        pop ebx
+        pop eax
+        cmp eax, 0
+        jne BOOLOR_2nd
+        push eax
+        next
+BOOLOR_2nd:
+        push ebx
+        next
+
+        primitive BOOLNOT, 'NOT', 0
+        pop eax
+        cmp eax, 0
+        je BOOLNOT_true
+        push dword 0
+        next
+BOOLNOT_true:
+        push dword 1
+        next
 
 ;;;
 ;;; String words
@@ -431,20 +502,71 @@ section .text
         dd DROP, TOKENBUFF, SWAP, EXIT
         dd SWAP, LIT, -37, BRANCH
 
+        forthword SCANTOKEN, 'SCANTOKEN', 0
+        dd WHITESPACE, DISCARD, READTOKEN
+        dd EXIT
+
+        primitive EXECUTE, 'EXECUTE', 0
+        pop eax
+        jmp [eax]
+
+        stringconst ERRNOTANUM, 'ERR: not a number'
+        
+        forthword SIGNANDNUMSTR, 'SIGNANDNUMSTR', 0
+        dd OVER, READ1, LIT, 45, EQUALP, LIT, 14, BRANCHNZ
+        dd DUP, LIT, 1, EQUALP, LIT, 2, BRANCHNZ
+        dd ERRNOTANUM, FAIL
+        dd LIT, 1, LIT, 2, BRANCH
+        dd LIT, 0
+        dd ROTR
+        dd LIT, 2, PICK, MINUS
+        dd SWAP, LIT, 2, PICK, PLUS
+        dd SWAP, EXIT
+
+        forthword STRTOPOSINT, 'STRTOPOSINT', 0
+        dd LIT, 0, DUP
+        dd LIT, 3, PICK, OVER, PLUS, READ1
+        dd DUP, LIT, 48, LESSTHANP, LIT, 2, BRANCHNZ
+        dd ERRNOTANUM, FAIL
+        dd DUP, LIT, 57, GREATERTHANP, LIT, 2, BRANCHNZ
+        dd ERRNOTANUM, FAIL
+        dd LIT, 48, MINUS
+        dd ROT, LIT, 10, MULTIPLY, PLUS, SWAP, ONEPLUS
+        dd LIT, 2, PICK, OVER, GREATERTHANP
+        dd LIT, -42, BRANCHZ
+        dd DROP, ROTR, DROP2
+        dd EXIT
+
+        forthword SIGNED, 'SIGNED', 0
+        dd SWAP, LIT, 1, BRANCHNZ
+        dd EXIT
+        dd LIT, -1, MULTIPLY, EXIT
+
+        forthword STRTONUM, 'STR>NUM', 0
+        dd SIGNANDNUMSTR, STRTOPOSINT, SIGNED
+        dd EXIT
+
         
 ;;;
 ;;; Main
 ;;;
 
-        stringconst TOKPROMPT, 'Found Token: '
+        forthword SCANNUM, 'SCANNUM', 0
+        dd SCANTOKEN, DUP, LIT, 1, BRANCHNZ
+        dd QUIT
+        dd STRTONUM, EXIT
+
+        stringconst INTRO, 'Input some numbers: '
+        stringconst EQS, 'Equal'
+        stringconst NEQS, 'Not Equal'
         
         forthword MAIN, 'MAIN', 0
-        dd WHITESPACE, DISCARD, READTOKEN
-        dd DUP, LIT, 1, BRANCHNZ
-        dd QUIT
-        dd TOKPROMPT, WRITE, WRITE, NL
-        dd LIT, -15, BRANCH
-
+        dd INTRO, WRITE, NL
+        dd EQS, NEQS
+        dd SCANNUM, SCANNUM, EQUALP
+        dd CHOOSE2, WRITE, NL
+        dd LIT, -11, BRANCH
+        
 bootstrap:
 	dd MAIN
         
