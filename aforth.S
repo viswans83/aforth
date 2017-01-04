@@ -371,12 +371,14 @@ section .text
         dd LIT, -31, BRANCH
 
         primitive CSTRLEN, 'CSTRLEN', 0
-        pop ebx
-        mov edi, ebx
+        pop edi
         mov al, 0
+        mov ecx, 15
         repne scasb
-        sub edi, ebx
-        push edi
+        mov eax, 15
+        sub eax, ecx
+        dec eax
+        push eax
         next
 
         primitive STREQP, 'STR=', 0
@@ -592,13 +594,15 @@ section .text
         dd EXIT
 
         forthword FINDWORD, 'FINDWORD', 0
+        dd DUP, LIT, 3, BRANCHNZ
+        dd NIP, NIP, EXIT
         dd DUP, PREVWORD
         dd OVER, WORDTONAME, LIT, 3, PICK
         dd LIT, 5, PICK, LIT, 5, PICK
         dd STREQP
         dd LIT, 4, BRANCHNZ
         dd DROP, NIP, NIP, EXIT
-        dd NIP, LIT, -25, BRANCH
+        dd NIP, LIT, -32, BRANCH
 
         variable LATEST
 
@@ -609,21 +613,23 @@ section .text
         forthword WORDF, 'WORD', 0
         dd LATESTWORD, FINDWORD
         dd EXIT
+
+        forthword REPL, 'REPL', 0
+        dd SCANTOKEN, DUP, LIT, 1, BRANCHNZ
+        dd QUIT
+        dd DUP2, WORDF
+        dd DUP, LIT, 6, BRANCHZ
+        dd NIP, NIP, EXECUTE, LIT, 2, BRANCH
+        dd DROP, STRTONUM
+        dd LIT, -23, BRANCH
         
         
 ;;;
 ;;; Main
 ;;;
 
-        stringconst ANAME, '+'
-        stringconst NOTFOUND, 'Not Found'
-
-        forthword MAIN, 'MAIN', 0
-        dd ANAME, LATESTWORD, FINDWORD
-        dd WRITE, NL, QUIT
-        
 bootstrap:
-	dd MAIN
+	dd REPL
 
 STARTSYMBOL:
         mov eax, lastword
