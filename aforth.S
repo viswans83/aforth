@@ -94,7 +94,7 @@ section .text
         next
 
         forthword FAIL, 'FAIL', 0
-        dd NL, WRITE, NL
+        dd WRITE, NL
         dd ERRORQUIT
 
         primitive SWAP, 'SWAP', 0
@@ -301,8 +301,17 @@ BRANCHNZ_jump:
         primitive MULTIPLY, '*', 0
         pop eax
         pop ebx
-        mul ebx
+        imul ebx
         push eax
+        next
+
+        primitive DIVMOD, '/MOD', 0
+        pop ebx
+        pop eax
+        cdq
+        idiv ebx
+        push eax
+        push edx
         next
 
 
@@ -343,6 +352,32 @@ BOOLNOT_true:
         next
 
 ;;;
+;;; Bitwise words
+;;;
+
+
+        primitive BITOR, '|', 0
+        pop ebx     
+        pop eax
+        or eax, ebx
+        push eax
+        next
+
+        primitive BITAND, '&', 0
+        pop ebx
+        pop eax
+        and eax, ebx
+        push eax
+        next
+
+        primitive BITNOT, 'NOT', 0
+        pop eax
+        not eax
+        push eax
+        next
+        
+        
+;;;
 ;;; String words
 ;;;
 
@@ -359,6 +394,15 @@ section .text
 	next
 %endmacro
 
+        primitive STRCPY, 'STRCPY', 0
+        mov eax, esi
+        pop edi
+        pop ecx
+        pop esi
+        rep stosb
+        mov esi, eax
+        next
+        
         forthword CHARINDEX, 'CHARINDEX', 0
         dd ROT
         dd LIT, 0
@@ -417,6 +461,14 @@ STREQP_done:
 ;;;
 ;;; Memory access
 ;;;
+        
+
+        primitive MEMSET, 'MEMSET', 0
+        pop eax
+        pop ecx
+        pop edi
+        rep stosb
+        next
 
 	primitive READ4, '@', 0
 	pop eax
@@ -441,6 +493,12 @@ STREQP_done:
 	pop ebx			; value
 	mov byte [eax], bl
 	next
+
+        forthword ADDSTORE4, '+!', 0
+        dd SWAP, OVER, READ4, PLUS 
+        dd SWAP, STORE4
+        dd EXIT
+
 
 %macro variable 1
 section .bss
@@ -509,6 +567,66 @@ section .text
 
 
 ;;;
+;;; Compiler words
+;;;
+
+
+        variable HERE
+
+        variable MODE
+
+        forthword COMMA, ',', 0
+        dd HERE, READ4, STORE4
+        dd LIT, 4, HERE, ADDSTORE4 
+        dd EXIT
+
+        forthword CCOMMA, 'C,', 0
+        dd HERE, READ4, STORE1
+        dd LIT, 1, HERE, ADDSTORE4 
+        dd EXIT
+
+        forthword COPYCOMMA, 'COPY,', 0
+        dd SWAP, OVER
+        dd HERE, READ4, STRCPY 
+        dd HERE, ADDSTORE4
+        dd EXIT
+
+        forthword ZEROSCOMMA, 'ZEROS,', 0
+        dd HERE, READ4, OVER, LIT, 0, MEMSET
+        dd HERE, ADDSTORE4
+        dd EXIT
+
+        forthword CREATE, 'CREATE', 0
+        dd LATESTWORD, COMMA                    
+        dd COPYCOMMA, LIT, 15, OVER, MINUS, ZEROSCOMMA
+        dd LIT, 0, CCOMMA                        
+        dd HERE, READ4, LATEST, STORE4        
+        dd LIT, DOCOL, COMMA                    
+        dd EXIT
+
+        forthword COMPILEMODE, ']', 0
+        dd LIT, 1, MODE, STORE4 
+        dd EXIT
+
+        forthword INTERPRETMODE, '[', 1
+        dd LIT, 0, MODE, STORE4 
+        dd EXIT
+
+        forthword COLON, ':', 0
+        dd SCANTOKEN, CREATE, COMPILEMODE
+        dd EXIT
+
+        forthword IMMEDIATE, 'IMMEDIATE', 0
+        dd LATEST, ONEMINUS, DUP 
+        dd READ1, LIT, 1, BITOR, SWAP, STORE1
+        dd EXIT
+
+        forthword SEMICOLON, ';', 1
+        dd LIT, EXIT, COMMA, INTERPRETMODE
+        dd EXIT
+        
+        
+;;;
 ;;; Outer interpreter
 ;;; 
 
@@ -544,7 +662,7 @@ section .text
 
         primitive EXECUTE, 'EXECUTE', 0
         pop eax
-        jmp [eax]
+        jmp dword [eax]
 
         stringconst ERRNOTANUM, 'ERR: not a number'
         
@@ -586,6 +704,14 @@ section .text
         dd LIT, 20, MINUS, READ4
         dd EXIT
 
+        forthword WORDTOFLAGS, 'WORD>FLAGS', 0
+        dd ONEMINUS, EXIT
+
+        forthword IMMEDIATEP, 'IMMEDIATE?', 0
+        dd WORDTOFLAGS, LIT, 1, BITAND
+        dd BITNOT, LIT, 1, BITAND
+        dd EXIT
+
         forthword WORDTONAME, 'WORD>NAME', 0
         dd LIT, 16, MINUS
         dd EXIT
@@ -615,19 +741,41 @@ section .text
         dd LATESTWORD, FINDWORD
         dd EXIT
 
+        forthword EXECUTEORCOMMA, 'EXECUTEORCOMMA', 0
+        dd DUP, IMMEDIATEP
+        dd LIT, 5, BRANCHNZ
+        dd MODE, READ4
+        dd LIT, 2, BRANCHNZ
+        dd EXECUTE, EXIT
+        dd COMMA, EXIT
+
+        forthword NUMORCOMMA, 'NUMORCOMMA', 0
+        dd MODE, READ4
+        dd LIT, 1, BRANCHNZ
+        dd EXIT
+        dd LIT, LIT, COMMA, COMMA, EXIT
+
         forthword REPL, 'REPL', 0
         dd SCANTOKEN, DUP, LIT, 1, BRANCHNZ
         dd QUIT
         dd DUP2, WORDF
         dd DUP, LIT, 6, BRANCHZ
-        dd NIP, NIP, EXECUTE, LIT, 2, BRANCH
-        dd DROP, STRTONUM
-        dd LIT, -23, BRANCH
+        dd NIP, NIP, EXECUTEORCOMMA, LIT, 3, BRANCH
+        dd DROP, STRTONUM, NUMORCOMMA
+        dd LIT, -24, BRANCH
         
         
 ;;;
 ;;; Main
 ;;;
+
+        stringconst WW, '+'
+
+        forthword TEST, 'TEST', 0
+        dd WW, WORDF, DUP
+        dd LIT, 1, BRANCHNZ
+        dd QUIT
+        dd WRITE, NL, QUIT
 
 bootstrap:
 	dd REPL
@@ -635,14 +783,19 @@ bootstrap:
 STARTSYMBOL:
         mov eax, lastword
         mov dword [var_data_LATEST], eax
+        mov eax, alloc_base
+        mov dword [var_data_HERE], eax
+        mov eax, 0
+        mov dword [var_data_MODE], eax
         mov ebp, return_stack_base	
         mov esi, bootstrap
         next
 
 	
 section .bss
+alloc_base:	
+	resd 10000	; space for 10000 double words
 return_stack_base:
         resd 1	 	; return stack with a capacity of 200 items
         resd 200 	; (grows downwards, i.e. low memory -> high memory)
-alloc_base:	
-	resd 1000	; space for 1000 double words
+        
