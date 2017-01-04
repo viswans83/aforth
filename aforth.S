@@ -94,7 +94,8 @@ section .text
         next
 
         forthword FAIL, 'FAIL', 0
-        dd NL, WRITE, NL, ERRORQUIT
+        dd NL, WRITE, NL
+        dd ERRORQUIT
 
         primitive SWAP, 'SWAP', 0
         pop eax
@@ -297,7 +298,7 @@ BRANCHNZ_jump:
 	sub dword [esp], eax
 	next
 
-        primitive MULTIPLY, 'MUL', 0
+        primitive MULTIPLY, '*', 0
         pop eax
         pop ebx
         mul ebx
