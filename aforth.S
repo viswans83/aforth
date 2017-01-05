@@ -399,7 +399,7 @@ section .text
         pop edi
         pop ecx
         pop esi
-        rep stosb
+        rep movsb
         mov esi, eax
         next
         
@@ -597,9 +597,9 @@ section .text
         dd EXIT
 
         forthword CREATE, 'CREATE', 0
+        dd SWAP, OVER
         dd LATESTWORD, COMMA                    
-        dd COPYCOMMA, LIT, 15, OVER, MINUS, ZEROSCOMMA
-        dd LIT, 0, CCOMMA                        
+        dd COPYCOMMA, LIT, 16, SWAP, MINUS, ZEROSCOMMA
         dd HERE, READ4, LATEST, STORE4        
         dd LIT, DOCOL, COMMA                    
         dd EXIT
@@ -617,7 +617,7 @@ section .text
         dd EXIT
 
         forthword IMMEDIATE, 'IMMEDIATE', 0
-        dd LATEST, ONEMINUS, DUP 
+        dd LATESTWORD, ONEMINUS, DUP 
         dd READ1, LIT, 1, BITOR, SWAP, STORE1
         dd EXIT
 
@@ -712,24 +712,21 @@ section .text
         dd BITNOT, LIT, 1, BITAND
         dd EXIT
 
-        forthword WORDTONAME, 'WORD>NAME', 0
-        dd LIT, 16, MINUS
-        dd EXIT
-
         forthword WORDTOSTR, 'WORD>STR', 0
-        dd WORDTONAME, DUP, CSTRLEN
+        dd LIT, 16, MINUS
+        dd DUP, CSTRLEN
         dd EXIT
 
         forthword FINDWORD, 'FINDWORD', 0
         dd DUP, LIT, 3, BRANCHNZ
         dd NIP, NIP, EXIT
         dd DUP, PREVWORD
-        dd OVER, WORDTONAME, LIT, 3, PICK
+        dd OVER, WORDTOSTR
         dd LIT, 5, PICK, LIT, 5, PICK
         dd STREQP
         dd LIT, 4, BRANCHNZ
         dd DROP, NIP, NIP, EXIT
-        dd NIP, LIT, -32, BRANCH
+        dd NIP, LIT, -29, BRANCH
 
         variable LATEST
 
@@ -743,7 +740,7 @@ section .text
 
         forthword EXECUTEORCOMMA, 'EXECUTEORCOMMA', 0
         dd DUP, IMMEDIATEP
-        dd LIT, 5, BRANCHNZ
+        dd LIT, 5, BRANCHZ
         dd MODE, READ4
         dd LIT, 2, BRANCHNZ
         dd EXECUTE, EXIT
@@ -769,13 +766,10 @@ section .text
 ;;; Main
 ;;;
 
-        stringconst WW, '+'
+        stringconst STR1, 'DUMMY'
 
-        forthword TEST, 'TEST', 0
-        dd WW, WORDF, DUP
-        dd LIT, 1, BRANCHNZ
-        dd QUIT
-        dd WRITE, NL, QUIT
+        forthword TEST1, 'TEST1', 0
+        dd STR1, CREATE, QUIT
 
 bootstrap:
 	dd REPL
@@ -793,9 +787,9 @@ STARTSYMBOL:
 
 	
 section .bss
-alloc_base:	
-	resd 10000	; space for 10000 double words
 return_stack_base:
         resd 1	 	; return stack with a capacity of 200 items
         resd 200 	; (grows downwards, i.e. low memory -> high memory)
+alloc_base:	
+	resd 10000	; space for 10000 double words
         
