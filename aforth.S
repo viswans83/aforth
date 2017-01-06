@@ -601,7 +601,7 @@ section .text
         dd LATESTWORD, COMMA                    
         dd COPYCOMMA, LIT, 16, SWAP, MINUS, ZEROSCOMMA
         dd HERE, READ4, LATEST, STORE4        
-        dd LIT, DOCOL, COMMA                    
+        dd LIT, DOCOL_asm, COMMA                    
         dd EXIT
 
         forthword COMPILEMODE, ']', 0
@@ -705,7 +705,7 @@ section .text
         dd EXIT
 
         forthword WORDTOFLAGS, 'WORD>FLAGS', 0
-        dd ONEMINUS, EXIT
+        dd ONEMINUS, READ1, EXIT
 
         forthword IMMEDIATEP, 'IMMEDIATE?', 0
         dd WORDTOFLAGS, LIT, 1, BITAND
@@ -766,10 +766,6 @@ section .text
 ;;; Main
 ;;;
 
-        stringconst STR1, 'DUMMY'
-
-        forthword TEST1, 'TEST1', 0
-        dd STR1, CREATE, QUIT
 
 bootstrap:
 	dd REPL
