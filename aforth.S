@@ -4,10 +4,10 @@
 %define STARTSYMBOL _start        
 %endif        
 
-;; linux 32-bit style syscall abi handler:
-;; * pass syscall number in eax
-;; * pass params in: ebx, ecx, edx
-;; * supports syscalls having upto 3 parameter 
+;;; Linux 32-bit style syscall abi handler:
+;;; 1) pass syscall number in eax
+;;; 2) pass params in the order: ebx, ecx, edx
+;;; 3) supports syscalls having upto 3 parameter 
 %macro systemcall 0
 %ifdef OSX
         push edx
@@ -20,7 +20,7 @@
         add esp, 16
 %endif
 %endmacro
-        
+
 %macro next 0
         lodsd
         jmp [eax]
@@ -38,9 +38,9 @@
 
 %define lastword 0
         
-;;
-;; primitive ASMNAME, 'WORDNAME', FLAGS
-;;
+;;;
+;;; macro: primitive ASMNAME, 'WORDNAME', FLAGS
+;;;
 %macro primitive 3
 %1_dict_entry:        
         dd lastword
@@ -66,9 +66,9 @@ section .text
 	poprs esi
 	next
 
-;;
-;; forthword ASMNAME, 'WORDNAME', FLAGS
-;;
+;;;
+;;; macro: forthword ASMNAME, 'WORDNAME', FLAGS
+;;;
 %macro forthword 3
 %1_dict_entry:   
         dd lastword
@@ -80,22 +80,6 @@ section .text
         dd DOCOL_asm
 %define lastword %1
 %endmacro
-
-	primitive QUIT, 'QUIT', 0
-        mov ebx, 0
-        mov eax, 1
-	systemcall
-        next
-
-        primitive ERRORQUIT, 'ERRORQUIT', 0
-        mov ebx, 1
-        mov eax, 1
-        systemcall
-        next
-
-        forthword FAIL, 'FAIL', 0
-        dd WRITE, NL
-        dd ERRORQUIT
 
         primitive SWAP, 'SWAP', 0
         pop eax
@@ -276,6 +260,28 @@ BRANCHNZ_jump:
         dd DROP2, EXIT
         dd NIP2, EXIT
 
+
+;;;
+;;; System words
+;;;
+
+        primitive QUIT, 'QUIT', 0
+        mov ebx, 0
+        mov eax, 1
+	systemcall
+        next
+
+        primitive ERRORQUIT, 'ERRORQUIT', 0
+        mov ebx, 1
+        mov eax, 1
+        systemcall
+        next
+
+        forthword FAIL, 'FAIL', 0
+        dd WRITE, NL
+        dd ERRORQUIT
+
+        
 ;;; 
 ;;; Arithmetic words
 ;;; 
@@ -536,7 +542,7 @@ section .text
 
 	primitive KEY, 'KEY', 0
 	push dword 0		; make room on stack for character
-	mov ebx, 1
+	mov ebx, 0
         mov ecx, esp            ; cbuf
 	mov edx, 1
         mov eax, 3
