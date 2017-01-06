@@ -144,14 +144,6 @@ section .text
 	push eax
 	next
 
-        primitive NIP2, '2NIP', 0
-        pop ebx
-        pop eax
-        add esp, 8
-        push eax
-        push ebx
-        next
-
         primitive ROT, 'ROT', 0
         pop ecx
         pop ebx
@@ -187,16 +179,9 @@ EQUALP_true:
 	push 0
 	next
 
-	primitive NOTEQUALP, '!=', 0
-	pop eax
-	pop ebx
-	cmp eax, ebx
-	jz NOTEQUALP_true
-	push 0
-	next
-NOTEQUALP_true:
-	push 1
-	next
+	forthword NOTEQUALP, '!=', 0
+	dd EQUALP, BOOLNOT
+        dd EXIT
 
         primitive LESSTHANP, '<', 0
         pop ebx
@@ -209,17 +194,12 @@ LESSTHANP_true:
         push 0
         next
 
-        primitive GREATERTHANP, '>', 0
-        pop ebx
-        pop eax
-        cmp eax, ebx
-        ja GREATERTHANP_true
-        push 1
-        next
-GREATERTHANP_true:
-        push 0
-        next
-
+        forthword GREATERTHANP, '>', 0
+        dd DUP2, LESSTHANP
+        dd ROTR, EQUALP
+        dd BOOLOR, BOOLNOT
+        dd EXIT
+        
         primitive LIT, 'LIT', 0
         push dword [esi]
         add esi, 4
@@ -258,7 +238,9 @@ BRANCHNZ_jump:
         forthword CHOOSE2, '2?', 0
         dd LIT, 2, BRANCHNZ
         dd DROP2, EXIT
-        dd NIP2, EXIT
+        dd ROT, DROP
+        dd ROT, DROP
+        dd EXIT
 
 
 ;;;
@@ -357,6 +339,15 @@ BOOLNOT_true:
         push dword 1
         next
 
+        primitive TRUE, 'TRUE', 0
+        push dword 0
+        next
+
+        primitive FALSE, 'FALSE', 0
+        push dword 1
+        next
+
+        
 ;;;
 ;;; Bitwise words
 ;;;
@@ -554,14 +545,13 @@ section .text
 	push dword [internal_var_eof]
 	next
 
-        forthword WRITE, 'WRITE', 0
-        dd DUP, LIT, 1, BRANCHNZ
-        dd EXIT
-        dd LIT, 0
-        dd LIT, 2, PICK, OVER
-        dd PLUS, READ1, EMIT, ONEPLUS
-        dd DUP2, EQUALP, LIT, -13, BRANCHNZ
-        dd DROP3, EXIT
+        primitive WRITE, 'WRITE', 0
+        mov ebx, 1
+        pop edx
+        pop ecx
+        mov eax, 4
+        systemcall
+        next
 
         forthword DISCARD, 'DISCARD', 0
 	dd KEY, EOF, LIT, 2, BRANCHNZ
@@ -793,5 +783,5 @@ return_stack_base:
         resd 1	 	; return stack with a capacity of 200 items
         resd 200 	; (grows downwards, i.e. low memory -> high memory)
 alloc_base:	
-	resd 10000	; space for 10000 double words
+	resd 10000	; space for 10000 cells
         
