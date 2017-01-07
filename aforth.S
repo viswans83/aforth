@@ -478,7 +478,7 @@ STREQP_done:
 	mov dword [eax], ebx
 	next
 
-	primitive READ1, 'c@', 0
+	primitive READ1, 'C@', 0
 	pop eax
 	mov bl, byte [eax]
 	and ebx, 0xFF
@@ -629,7 +629,7 @@ section .text
         
 section .bss
 internal_var_tokbuff:
-        resb 16
+        resb 256
 
 section .text
         
@@ -783,5 +783,5 @@ return_stack_base:
         resd 1	 	; return stack with a capacity of 200 items
         resd 200 	; (grows downwards, i.e. low memory -> high memory)
 alloc_base:	
-	resd 10000	; space for 10000 cells
+	resd 20000	; space for 10000 cells
         
