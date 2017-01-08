@@ -190,6 +190,17 @@ INTERPRETER:
         push ebx
         next
 
+        primitive SWAP2, '2SWAP', 0
+        pop ebx
+        pop eax
+        pop edx
+        pop ecx
+        push eax
+        push ebx
+        push ecx
+        push edx
+        next
+
         primitive SWAPD, 'SWAPD', 0
         pop eax
         pop ebx
@@ -368,8 +379,7 @@ BRANCHNZ_jump:
         next
 
         forthword FAIL, 'FAIL', 0
-        dd WRITE, NL
-        dd ERRORQUIT
+        dd WRITE, ERRORQUIT
 
         
 ;;; 
@@ -475,7 +485,7 @@ BOOLNOT_true:
         push eax
         next
 
-        primitive BITNOT, 'NOT', 0
+        primitive BITNOT, 'INVERT', 0
         pop eax
         not eax
         push eax

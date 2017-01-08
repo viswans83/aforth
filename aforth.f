@@ -1,15 +1,14 @@
 : LIT,
   LIT LIT , , ;
 
-: \
-  SCANTOKEN WORD LIT,
-  ; IMMEDIATE
+: DUP,
+  LIT DUP , ;
 
 : /
   /MOD DROP ;
 
 : MOD
-  /MOD NIP ;
+  /MOD NIP ;  
 
 : BRANCHZ,
   0 LIT,
@@ -26,6 +25,11 @@
   LIT BRANCH ,
   HERE @ 8 - ;
 
+: BRANCHOFF!
+  OVER
+  - 4 / 2 -
+  SWAP ! ;
+
 : IF
   BRANCHNZ,
   ; IMMEDIATE
@@ -34,31 +38,40 @@
   BRANCHZ,
   ; IMMEDIATE
     
-: BRANCHOFF!
-  HERE @ OVER
-  - 4 / 2 -
-  SWAP ! ;
-
 : ELSE
   BRANCH, SWAP
-  BRANCHOFF!
+  HERE @ BRANCHOFF!
   ; IMMEDIATE
 
 : END
+  HERE @ BRANCHOFF!
+  ; IMMEDIATE
+
+: WHILE
+  HERE @
+  BRANCHNZ,
+  ; IMMEDIATE
+
+: UNTIL
+  HERE @
+  BRANCHZ,
+  ; IMMEDIATE
+
+: LOOP
+  BRANCH, ROT BRANCHOFF!
+  HERE @ BRANCHOFF!
+  ; IMMEDIATE
+
+: RECUR
+  BRANCH, LATESTWORD 4 +
   BRANCHOFF!
   ; IMMEDIATE
 
-: CHAR:
-  SCANTOKEN DROP C@ LIT,
-  ; IMMEDIATE
-
-: NEG
-  0 - ;
-
-: RECUR
-  LIT LIT ,
-  LATESTWORD HERE @ - 4 / 1- ,
-  LIT BRANCH ,
+: \
+  SCANTOKEN WORD
+  MODE @ UNLESS
+    LIT,
+  END
   ; IMMEDIATE
 
 : //
@@ -80,4 +93,42 @@
 
 // ( x y -- z ) are used to place a stack comment
 // to indicate the input and output stacks of a word
+
+: CHAR:
+  SCANTOKEN DROP C@
+  MODE @ UNLESS
+    LIT,
+  END
+  ; IMMEDIATE
+
+: NEG ( x -- -x )
+  0 - ;
+
+: KEY="? ( -- ch ? )
+  KEY DUP
+  CHAR: "
+  = ;
+
+: ACCEPTSTR ( -- buff len )
+  HERE @
+  KEY="? UNTIL     // drop chars until first "
+    DROP KEY="?
+  LOOP DROP
+  KEY="? UNTIL     // append chars until next "
+    C, KEY="?
+  LOOP DROP
+  DUP HERE @ SWAP -
+  ;
+
+: STRING: ( -- )
+  SCANTOKEN ACCEPTSTR 2SWAP
+  CREATE SWAP LIT, LIT,
+  LIT EXIT ,
+  ; IMMEDIATE
+
+// Now we are able to create string constants like below:
+//   STRING: Greeting "Welcome to aforth!"
+//   Greeting WRITE NL
+// this will output:
+//   Welcome to aforth!
 
