@@ -1,9 +1,22 @@
+;;;
+;;; aforth - a simple forth bootstrapped from 32-bit x86 assembly
+;;; 
+;;; compile: ./build.sh [linux|osx]
+;;; run: cat aforth.f - | ./aforth
+;;;
+
+        
 %ifdef OSX
 %define STARTSYMBOL start
 %else
 %define STARTSYMBOL _start        
 %endif        
 
+
+;;;
+;;; Macro definitions
+;;; 
+        
 ;;; Linux 32-bit style syscall abi handler:
 ;;; 1) pass syscall number in eax
 ;;; 2) pass params in the order: ebx, ecx, edx
@@ -21,25 +34,58 @@
 %endif
 %endmacro
 
+;;; 
+;;; next macro:
+;;; used to transfer control from the currently 
+;;; executing primitive word to the next word
+;;; 
 %macro next 0
         lodsd
         jmp [eax]
 %endmacro
 
+;;;
+;;; Push a value onto the return stack
+;;;         
 %macro pushrs 1
 	add ebp, 4
 	mov [ebp], %1
 %endmacro
 
+;;;
+;;; Pop a value from the return stack
+;;; 
 %macro poprs 1
 	mov %1, dword [ebp]
 	sub ebp, 4
 %endmacro	
 
+;;;
+;;; Keep track of the last defined word in assembly
+;;; in order to maintain a chain of words in the
+;;; forth dictionary
+;;; 
 %define lastword 0
+
+;;;
+;;; How words are structured in the `aforth` dictionary:
+;;; +-----------------------------------------------------------+
+;;; | Link | Name | Flags | Interpreter | Definition ...        |
+;;; +-----------------------------------------------------------+
+;;;
+;;; Link        : address to the previously defined word (4 bytes)
+;;; Name        : max 15 Bytes (0 padded on the right) (16 bytes)
+;;; Flags       : to control behaviour of this word (1 byte)
+;;; Interpreter : pointer to x86 code that can execute this word (4 bytes)
+;;; Definition  : either x86 code or a pointers to other words (variable size)
+;;; 
         
 ;;;
 ;;; macro: primitive ASMNAME, 'WORDNAME', FLAGS
+;;; 
+;;; primitive words do not need an interpreter, so their
+;;; interpreter pointer simply points to the start of their
+;;; x86 instructions
 ;;;
 %macro primitive 3
 %1_dict_entry:        
@@ -53,21 +99,16 @@
 %1_asm:
 %define lastword %1
 %endmacro        
-        
-global STARTSYMBOL
-
-section .text
-	primitive DOCOL, 'DOCOL', 0
-	pushrs esi
-	lea esi, [eax+4]
-	next
-
-	primitive EXIT, 'EXIT', 0
-	poprs esi
-	next
 
 ;;;
 ;;; macro: forthword ASMNAME, 'WORDNAME', FLAGS
+;;;
+;;; non-primitive / compound words are words that are defined
+;;; in terms of other words. Their definition consists of a
+;;; list of pointers to other forth words. Thus they cannot be
+;;; "executed" directly. Their interpreter word thus points to a
+;;; simple interpreter (defined further down below) that sets up
+;;; some state and jumps to the first word of word definition
 ;;;
 %macro forthword 3
 %1_dict_entry:   
@@ -77,9 +118,70 @@ section .text
         times 15-($-%1_name) db 0
         db %3
 %1:
-        dd DOCOL_asm
+        dd INTERPRETER
 %define lastword %1
 %endmacro
+
+;;;
+;;; macro: stringconst ASMNAME, 'WORDNAME'
+;;;
+;;; this macro defines a forth word that when executed simply places
+;;; on the stack (a) the address of the string buffer, (b) the string length
+;;; 
+%macro stringconst 2
+section .data
+str_data_%1:	db %2
+str_len_%1:     equ $-str_data_%1
+section .text
+	%defstr variable_name %1
+	primitive %1, variable_name, 0
+	push str_data_%1
+        push str_len_%1
+	next
+%endmacro
+
+;;;
+;;; macro: variable WORDNAME
+;;;
+;;; this macro first reserves 4 bytes of space in the .data section
+;;; and defines a forth word that simply places this address on
+;;; the stack
+;;; 
+%macro variable 1
+section .bss
+var_data_%1:	
+	resd 1
+section .text
+	%defstr variable_name %1
+	primitive %1, variable_name, 0
+	push var_data_%1
+	next
+%endmacro	
+
+        
+global STARTSYMBOL
+
+section .text
+
+;;;
+;;; Interpreter for forth words
+;;; 1) Push the next word to be executed onto the return stack
+;;; 2) Sets up the next word to be executed as the first word 
+;;;    from the currently executing words definition
+;;; 3) Execute next word
+;;; 
+INTERPRETER:  
+	pushrs esi
+	lea esi, [eax+4]
+	next
+
+;;;
+;;; Core words
+;;; 
+        
+	primitive EXIT, 'EXIT', 0
+	poprs esi
+	next
 
         primitive SWAP, 'SWAP', 0
         pop eax
@@ -168,6 +270,12 @@ section .text
         push ebx
         next
 
+        
+;;;
+;;; Comparison words
+;;; 
+        
+        
 	primitive EQUALP, '=', 0
 	pop eax
 	pop ebx
@@ -304,7 +412,7 @@ BRANCHNZ_jump:
 
 
 ;;;
-;;; Logic words
+;;; Boolean logic words
 ;;;
 
         primitive BOOLAND, 'AND', 0
@@ -349,7 +457,7 @@ BOOLNOT_true:
 
         
 ;;;
-;;; Bitwise words
+;;; Bitwise operation words
 ;;;
 
 
@@ -375,21 +483,9 @@ BOOLNOT_true:
         
         
 ;;;
-;;; String words
+;;; String manipulation words
 ;;;
 
-
-%macro stringconst 2
-section .data
-str_data_%1:	db %2
-str_len_%1:     equ $-str_data_%1
-section .text
-	%defstr variable_name %1
-	primitive %1, variable_name, 0
-	push str_data_%1
-        push str_len_%1
-	next
-%endmacro
 
         primitive STRCPY, 'STRCPY', 0
         mov eax, esi
@@ -456,7 +552,7 @@ STREQP_done:
 
         
 ;;;
-;;; Memory access
+;;; Memory access words
 ;;;
         
 
@@ -495,18 +591,6 @@ STREQP_done:
         dd SWAP, OVER, READ4, PLUS 
         dd SWAP, STORE4
         dd EXIT
-
-
-%macro variable 1
-section .bss
-var_data_%1:	
-	resd 1
-section .text
-	%defstr variable_name %1
-	primitive %1, variable_name, 0
-	push var_data_%1
-	next
-%endmacro	
 
 	
 ;;; 
@@ -597,7 +681,7 @@ section .text
         dd LATESTWORD, COMMA                    
         dd COPYCOMMA, LIT, 16, SWAP, MINUS, ZEROSCOMMA
         dd HERE, READ4, LATEST, STORE4        
-        dd LIT, DOCOL_asm, COMMA                    
+        dd LIT, INTERPRETER, COMMA                    
         dd EXIT
 
         forthword COMPILEMODE, ']', 0
@@ -767,14 +851,26 @@ bootstrap:
 	dd REPL
 
 STARTSYMBOL:
+        ;; set up dictionary pointer
         mov eax, lastword
         mov dword [var_data_LATEST], eax
+
+        ;; set up HERE pointer
         mov eax, alloc_base
         mov dword [var_data_HERE], eax
+
+        ;; set up outer interpreter mode
         mov eax, 0
         mov dword [var_data_MODE], eax
+
+        ;; set up return stack
         mov ebp, return_stack_base	
+
+        ;; set up the first forth word that will be
+        ;; interpreted
         mov esi, bootstrap
+
+        ;; jump to forth
         next
 
 	
@@ -783,5 +879,5 @@ return_stack_base:
         resd 1	 	; return stack with a capacity of 200 items
         resd 200 	; (grows downwards, i.e. low memory -> high memory)
 alloc_base:	
-	resd 20000	; space for 10000 cells
+	resd 20000	; space for 20000 cells
         
