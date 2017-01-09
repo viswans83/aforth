@@ -306,7 +306,7 @@ EQUALP_true:
         pop ebx
         pop eax
         cmp eax, ebx
-        jb LESSTHANP_true
+        jl LESSTHANP_true
         push 1
         next
 LESSTHANP_true:
@@ -591,7 +591,7 @@ STREQP_done:
 	push ebx
 	next
 
-	primitive STORE1, 'c!', 0
+	primitive STORE1, 'C!', 0
 	pop eax			; address
 	pop ebx			; value
 	mov byte [eax], bl

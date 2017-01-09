@@ -102,7 +102,10 @@
   ; IMMEDIATE
 
 : NEG ( x -- -x )
-  0 - ;
+  0 SWAP - ;
+
+: NEG? ( x -- ? )
+  0 < ;
 
 : KEY="? ( -- ch ? )
   KEY DUP
@@ -131,4 +134,61 @@
 //   Greeting WRITE NL
 // this will output:
 //   Welcome to aforth!
+
+: CELLS ( n -- )
+  4 * ;
+
+: BYTES ( n -- ) ;
+
+: ALLOCATE ( n -- )
+  HERE +! ;
+
+: VAR: ( -- )
+  SCANTOKEN CREATE
+  HERE @ 3 CELLS +  // Space for LIT, XXXXX, EXIT
+  LIT, LIT EXIT ,
+  ; IMMEDIATE
+
+// Now we can create variables at runtime like below:
+//   VAR: A 1 CELLS ALLOCATE
+//   VAR: B 15 BYTES ALLOCATE
+
+VAR: N>S_BUFF 15 BYTES ALLOCATE
+VAR: N>S_PTR   1 CELLS ALLOCATE
+
+: 1-@ ( var -- )
+  DUP @ 1- SWAP ! ;
+
+: NUM>STR ( n -- buff len )
+  DUP IF
+    DROP
+    CHAR: 0 N>S_BUFF C!
+    N>S_BUFF 1 EXIT
+  END
+  N>S_BUFF 16 + N>S_PTR !
+  DUP NEG? IF
+    NEG TRUE
+  ELSE
+    FALSE
+  END SWAP
+  DUP UNTIL
+    10 /MOD
+    CHAR: 0 +
+    N>S_PTR 1-@
+    N>S_PTR @ C!
+    DUP
+  LOOP DROP
+  IF
+    N>S_PTR 1-@
+    CHAR: - N>S_PTR @ C!
+  END
+  N>S_PTR @
+  N>S_BUFF 16 + N>S_PTR @ - ;
+
+: . ( n -- )
+  NUM>STR WRITE NL ;
+
+: ?. ( ? -- )
+  CHAR: T CHAR: F
+  ROT ? EMIT NL ;
 
