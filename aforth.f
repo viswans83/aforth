@@ -165,7 +165,7 @@ VAR: N>S_PTR   1 CELLS ALLOCATE
     CHAR: 0 N>S_BUFF C!
     N>S_BUFF 1 EXIT
   END
-  N>S_BUFF 16 + N>S_PTR !
+  N>S_BUFF 15 + N>S_PTR !
   DUP NEG? IF
     NEG TRUE
   ELSE
@@ -183,12 +183,22 @@ VAR: N>S_PTR   1 CELLS ALLOCATE
     CHAR: - N>S_PTR @ C!
   END
   N>S_PTR @
-  N>S_BUFF 16 + N>S_PTR @ - ;
+  N>S_BUFF 15 + N>S_PTR @ - ;
+
+: SPC ( -- )
+  32 EMIT ;
+
+: WORD. ( word -- )
+  WORD>STR WRITE NL ;
+
+: WORDS. ( -- )
+  LATESTWORD
+  DUP UNTIL
+    DUP WORD>STR WRITE SPC
+    PREVWORD DUP
+  LOOP
+  DROP NL ;
 
 : . ( n -- )
   NUM>STR WRITE NL ;
-
-: ?. ( ? -- )
-  CHAR: T CHAR: F
-  ROT ? EMIT NL ;
 
