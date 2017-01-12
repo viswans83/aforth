@@ -7,17 +7,17 @@
 
         
 %ifdef OSX
-%define STARTSYMBOL start
+%define startsymbol start
 %else
-%define STARTSYMBOL _start        
+%define startsymbol _start        
 %endif        
 
 
 ;;;
-;;; Macro definitions
+;;; macro definitions
 ;;; 
         
-;;; Linux 32-bit style syscall abi handler:
+;;; linux 32-bit style syscall abi handler:
 ;;; 1) pass syscall number in eax
 ;;; 2) pass params in the order: ebx, ecx, edx
 ;;; 3) supports syscalls having upto 3 parameter 
@@ -45,7 +45,7 @@
 %endmacro
 
 ;;;
-;;; Push a value onto the return stack
+;;; push a value onto the return stack
 ;;;         
 %macro pushrs 1
 	add ebp, 4
@@ -53,7 +53,7 @@
 %endmacro
 
 ;;;
-;;; Pop a value from the return stack
+;;; pop a value from the return stack
 ;;; 
 %macro poprs 1
 	mov %1, dword [ebp]
@@ -61,27 +61,27 @@
 %endmacro	
 
 ;;;
-;;; Keep track of the last defined word in assembly
+;;; keep track of the last defined word in assembly
 ;;; in order to maintain a chain of words in the
 ;;; forth dictionary
 ;;; 
 %define lastword 0
 
 ;;;
-;;; How words are structured in the `aforth` dictionary:
+;;; how words are structured in the `aforth` dictionary:
 ;;; +-----------------------------------------------------------+
-;;; | Link | Name | Flags | Interpreter | Definition ...        |
+;;; | link | name | flags | interpreter | definition ...        |
 ;;; +-----------------------------------------------------------+
 ;;;
-;;; Link        : address to the previously defined word (4 bytes)
-;;; Name        : max 15 Bytes (0 padded on the right) (16 bytes)
-;;; Flags       : to control behaviour of this word (1 byte)
-;;; Interpreter : pointer to x86 code that can execute this word (4 bytes)
-;;; Definition  : either x86 code or a pointers to other words (variable size)
+;;; link        : address to the previously defined word (4 bytes)
+;;; name        : max 15 bytes (0 padded on the right) (16 bytes)
+;;; flags       : to control behaviour of this word (1 byte)
+;;; interpreter : pointer to x86 code that can execute this word (4 bytes)
+;;; definition  : either x86 code or a pointers to other words (variable size)
 ;;; 
         
 ;;;
-;;; macro: primitive ASMNAME, 'WORDNAME', FLAGS
+;;; macro: primitive asmname, 'wordname', flags
 ;;; 
 ;;; primitive words do not need an interpreter, so their
 ;;; interpreter pointer simply points to the start of their
@@ -101,12 +101,12 @@
 %endmacro        
 
 ;;;
-;;; macro: forthword ASMNAME, 'WORDNAME', FLAGS
+;;; macro: forthword asmname, 'wordname', flags
 ;;;
 ;;; non-primitive / compound words are words that are defined
-;;; in terms of other words. Their definition consists of a
-;;; list of pointers to other forth words. Thus they cannot be
-;;; "executed" directly. Their interpreter word thus points to a
+;;; in terms of other words. their definition consists of a
+;;; list of pointers to other forth words. thus they cannot be
+;;; "executed" directly. their interpreter word thus points to a
 ;;; simple interpreter (defined further down below) that sets up
 ;;; some state and jumps to the first word of word definition
 ;;;
@@ -118,12 +118,12 @@
         times 15-($-%1_name) db 0
         db %3
 %1:
-        dd INTERPRETER
+        dd interpreter
 %define lastword %1
 %endmacro
 
 ;;;
-;;; macro: stringconst ASMNAME, 'WORDNAME'
+;;; macro: stringconst asmname, 'wordname'
 ;;;
 ;;; this macro defines a forth word that when executed simply places
 ;;; on the stack (a) the address of the string buffer, (b) the string length
@@ -141,7 +141,7 @@ section .text
 %endmacro
 
 ;;;
-;;; macro: variable WORDNAME
+;;; macro: variable wordname
 ;;;
 ;;; this macro first reserves 4 bytes of space in the .data section
 ;;; and defines a forth word that simply places this address on
@@ -159,38 +159,38 @@ section .text
 %endmacro	
 
         
-global STARTSYMBOL
+global startsymbol
 
 section .text
 
 ;;;
-;;; Interpreter for forth words
-;;; 1) Push the next word to be executed onto the return stack
-;;; 2) Sets up the next word to be executed as the first word 
+;;; interpreter for forth words
+;;; 1) push the next word to be executed onto the return stack
+;;; 2) sets up the next word to be executed as the first word 
 ;;;    from the currently executing words definition
-;;; 3) Execute next word
+;;; 3) execute next word
 ;;; 
-INTERPRETER:  
+interpreter:  
 	pushrs esi
 	lea esi, [eax+4]
 	next
 
 ;;;
-;;; Core words
+;;; core words
 ;;; 
         
-	primitive EXIT, 'EXIT', 0
+	primitive exit, 'exit', 0
 	poprs esi
 	next
 
-        primitive SWAP, 'SWAP', 0
+        primitive swap, 'swap', 0
         pop eax
         pop ebx
         push eax
         push ebx
         next
 
-        primitive SWAP2, '2SWAP', 0
+        primitive swap2, '2swap', 0
         pop ebx
         pop eax
         pop edx
@@ -201,7 +201,7 @@ INTERPRETER:
         push edx
         next
 
-        primitive SWAPD, 'SWAPD', 0
+        primitive swapd, 'swapd', 0
         pop eax
         pop ebx
         pop ecx
@@ -210,19 +210,19 @@ INTERPRETER:
         push eax
         next
         
-	primitive DUP, 'DUP', 0
+	primitive dup, 'dup', 0
 	mov eax, dword [esp]
 	push eax
 	next
 
-	primitive DUP2, '2DUP', 0
+	primitive dup2, '2dup', 0
 	mov eax, dword [esp+4]
 	push eax
 	mov eax, dword [esp+4]
 	push eax
 	next
 
-        primitive DUP3, '3DUP', 0
+        primitive dup3, '3dup', 0
         mov eax, dword [esp+8]
 	push eax
 	mov eax, dword [esp+8]
@@ -231,33 +231,33 @@ INTERPRETER:
 	push eax
         next
 
-	primitive DROP, 'DROP', 0
+	primitive drop, 'drop', 0
 	pop eax
 	next
 
-	primitive DROP2, '2DROP', 0
+	primitive drop2, '2drop', 0
 	pop eax
 	pop eax
 	next
 
-        primitive DROP3, '3DROP', 0
+        primitive drop3, '3drop', 0
         pop eax
         pop eax
         pop eax
         next
 
-	primitive OVER, 'OVER', 0
+	primitive over, 'over', 0
 	mov eax, dword [esp + 4]
 	push eax
 	next
 
-	primitive NIP, 'NIP', 0
+	primitive nip, 'nip', 0
 	pop eax
 	pop ebx
 	push eax
 	next
 
-        primitive ROT, 'ROT', 0
+        primitive rot, 'rot', 0
         pop ecx
         pop ebx
         pop eax
@@ -266,7 +266,7 @@ INTERPRETER:
         push eax
         next
 
-        primitive ROTR, '-ROT', 0
+        primitive rotr, '-rot', 0
         pop ecx
         pop ebx
         pop eax
@@ -275,7 +275,7 @@ INTERPRETER:
         push ebx
         next
 
-        primitive PICK, 'PICK', 0
+        primitive pick, 'pick', 0
         pop eax
         mov ebx, dword [esp + 4*eax]
         push ebx
@@ -283,135 +283,135 @@ INTERPRETER:
 
         
 ;;;
-;;; Comparison words
+;;; comparison words
 ;;; 
         
         
-	primitive EQUALP, '=', 0
+	primitive equalp, '=', 0
 	pop eax
 	pop ebx
 	cmp eax, ebx
-	jz EQUALP_true
+	jz equalp_true
 	push 1
 	next
-EQUALP_true:
+equalp_true:
 	push 0
 	next
 
-	forthword NOTEQUALP, '!=', 0
-	dd EQUALP, BOOLNOT
-        dd EXIT
+	forthword notequalp, '!=', 0
+	dd equalp, boolnot
+        dd exit
 
-        primitive LESSTHANP, '<', 0
+        primitive lessthanp, '<', 0
         pop ebx
         pop eax
         cmp eax, ebx
-        jl LESSTHANP_true
+        jl lessthanp_true
         push 1
         next
-LESSTHANP_true:
+lessthanp_true:
         push 0
         next
 
-        forthword GREATERTHANP, '>', 0
-        dd DUP2, LESSTHANP
-        dd ROTR, EQUALP
-        dd BOOLOR, BOOLNOT
-        dd EXIT
+        forthword greaterthanp, '>', 0
+        dd dup2, lessthanp
+        dd rotr, equalp
+        dd boolor, boolnot
+        dd exit
         
-        primitive LIT, 'LIT', 0
+        primitive lit, 'lit', 0
         push dword [esi]
         add esi, 4
         next
 
-	primitive BRANCH, 'BRANCH', 0
+	primitive branch, 'branch', 0
 	pop eax
 	lea esi, [esi + 4*eax]
 	next
 
-	primitive BRANCHZ, 'BRANCHZ', 0
+	primitive branchz, 'branchz', 0
 	pop eax			; offset
 	pop ebx			; value
 	cmp ebx, 0
-	jz BRANCHZ_jump
+	jz branchz_jump
 	next
-BRANCHZ_jump:
+branchz_jump:
 	lea esi, [esi + 4*eax]
 	next
 
-        primitive BRANCHNZ, 'BRANCHNZ', 0
+        primitive branchnz, 'branchnz', 0
 	pop eax			; offset
 	pop ebx			; value
 	cmp ebx, 0
-	jnz BRANCHZ_jump
+	jnz branchz_jump
 	next
-BRANCHNZ_jump:
+branchnz_jump:
 	lea esi, [esi + 4*eax]
 	next
 
-        forthword CHOOSE, '?', 0
-        dd LIT, 2, BRANCHNZ
-        dd DROP, EXIT
-        dd NIP, EXIT
+        forthword choose, '?', 0
+        dd lit, 2, branchnz
+        dd drop, exit
+        dd nip, exit
 
-        forthword CHOOSE2, '2?', 0
-        dd LIT, 2, BRANCHNZ
-        dd DROP2, EXIT
-        dd ROT, DROP
-        dd ROT, DROP
-        dd EXIT
+        forthword choose2, '2?', 0
+        dd lit, 2, branchnz
+        dd drop2, exit
+        dd rot, drop
+        dd rot, drop
+        dd exit
 
 
 ;;;
-;;; System words
+;;; system words
 ;;;
 
-        primitive QUIT, 'QUIT', 0
+        primitive quit, 'quit', 0
         mov ebx, 0
         mov eax, 1
 	systemcall
         next
 
-        primitive ERRORQUIT, 'ERRORQUIT', 0
+        primitive errorquit, 'errorquit', 0
         mov ebx, 1
         mov eax, 1
         systemcall
         next
 
-        forthword FAIL, 'FAIL', 0
-        dd WRITE, ERRORQUIT
+        forthword fail, 'fail', 0
+        dd write, errorquit
 
         
 ;;; 
-;;; Arithmetic words
+;;; arithmetic words
 ;;; 
 
-	primitive ONEPLUS, '1+', 0
+	primitive oneplus, '1+', 0
 	inc dword [esp]
 	next
 
-	primitive ONEMINUS, '1-', 0
+	primitive oneminus, '1-', 0
 	dec dword [esp]
 	next
 
-	primitive PLUS, '+', 0
+	primitive plus, '+', 0
 	pop eax
 	add dword [esp], eax
 	next
 
-	primitive MINUS, '-', 0
+	primitive minus, '-', 0
 	pop eax
 	sub dword [esp], eax
 	next
 
-        primitive MULTIPLY, '*', 0
+        primitive multiply, '*', 0
         pop eax
         pop ebx
         imul ebx
         push eax
         next
 
-        primitive DIVMOD, '/MOD', 0
+        primitive divmod, '/mod', 0
         pop ebx
         pop eax
         cdq
@@ -422,70 +422,70 @@ BRANCHNZ_jump:
 
 
 ;;;
-;;; Boolean logic words
+;;; boolean logic words
 ;;;
 
-        primitive BOOLAND, 'AND', 0
+        primitive booland, 'and', 0
         pop ebx
         pop eax
         cmp eax, 0
-        je BOOLAND_2nd
+        je booland_2nd
         push eax
         next
-BOOLAND_2nd:
+booland_2nd:
         push ebx
         next
 
-        primitive BOOLOR, 'OR', 0
+        primitive boolor, 'or', 0
         pop ebx
         pop eax
         cmp eax, 0
-        jne BOOLOR_2nd
+        jne boolor_2nd
         push eax
         next
-BOOLOR_2nd:
+boolor_2nd:
         push ebx
         next
 
-        primitive BOOLNOT, 'NOT', 0
+        primitive boolnot, 'not', 0
         pop eax
         cmp eax, 0
-        je BOOLNOT_true
+        je boolnot_true
         push dword 0
         next
-BOOLNOT_true:
+boolnot_true:
         push dword 1
         next
 
-        primitive TRUE, 'TRUE', 0
+        primitive true, 'true', 0
         push dword 0
         next
 
-        primitive FALSE, 'FALSE', 0
+        primitive false, 'false', 0
         push dword 1
         next
 
         
 ;;;
-;;; Bitwise operation words
+;;; bitwise operation words
 ;;;
 
 
-        primitive BITOR, '|', 0
+        primitive bitor, '|', 0
         pop ebx     
         pop eax
         or eax, ebx
         push eax
         next
 
-        primitive BITAND, '&', 0
+        primitive bitand, '&', 0
         pop ebx
         pop eax
         and eax, ebx
         push eax
         next
 
-        primitive BITNOT, 'INVERT', 0
+        primitive bitnot, 'invert', 0
         pop eax
         not eax
         push eax
@@ -493,11 +493,11 @@ BOOLNOT_true:
         
         
 ;;;
-;;; String manipulation words
+;;; string manipulation words
 ;;;
 
 
-        primitive STRCPY, 'STRCPY', 0
+        primitive strcpy, 'strcpy', 0
         mov eax, esi
         pop edi
         pop ecx
@@ -506,19 +506,19 @@ BOOLNOT_true:
         mov esi, eax
         next
         
-        forthword CHARINDEX, 'CHARINDEX', 0
-        dd ROT
-        dd LIT, 0
-        dd DUP2, PLUS, READ1
-        dd LIT, 3, PICK, EQUALP
-        dd LIT, 4, BRANCHNZ
-        dd NIP, NIP, NIP, EXIT
-        dd ONEPLUS, LIT, 3, PICK, OVER, GREATERTHANP
-        dd LIT, 5, BRANCHZ
-        dd DROP2, DROP2, LIT, -1, EXIT
-        dd LIT, -31, BRANCH
+        forthword charindex, 'charindex', 0
+        dd rot
+        dd lit, 0
+        dd dup2, plus, read1
+        dd lit, 3, pick, equalp
+        dd lit, 4, branchnz
+        dd nip, nip, nip, exit
+        dd oneplus, lit, 3, pick, over, greaterthanp
+        dd lit, 5, branchz
+        dd drop2, drop2, lit, -1, exit
+        dd lit, -31, branch
 
-        primitive CSTRLEN, 'CSTRLEN', 0
+        primitive cstrlen, 'cstrlen', 0
         pop edi
         mov al, 0
         mov ecx, 15
@@ -529,7 +529,7 @@ BOOLNOT_true:
         push eax
         next
 
-        primitive STREQP, 'STR=', 0
+        primitive streqp, 'str=', 0
         push ebp
         mov ebp, esp
         push esi
@@ -538,73 +538,73 @@ BOOLNOT_true:
         mov eax, dword [ebp+12]
         mov esi, dword [ebp+16]
         cmp eax, ebx
-        jne STREQP_notequal
+        jne streqp_notequal
         mov ecx, eax
         repe cmpsb
-        jne STREQP_notequal
+        jne streqp_notequal
         mov eax, 0
-        jmp STREQP_done
-STREQP_notequal:
+        jmp streqp_done
+streqp_notequal:
         mov eax, 1
-STREQP_done:
+streqp_done:
         pop esi
         pop ebp
         add esp, 16
         push eax
         next
 
-        stringconst WHITESPACE, {32, 13, 10, 9}
+        stringconst whitespace, {32, 13, 10, 9}
 
-        forthword WHITESPACEP, 'WHITESPACE?', 0
-        dd WHITESPACE, ROT, CHARINDEX
-        dd LIT, -1, NOTEQUALP
-        dd EXIT
+        forthword whitespacep, 'whitespace?', 0
+        dd whitespace, rot, charindex
+        dd lit, -1, notequalp
+        dd exit
 
         
 ;;;
-;;; Memory access words
+;;; memory access words
 ;;;
         
 
-        primitive MEMSET, 'MEMSET', 0
+        primitive memset, 'memset', 0
         pop eax
         pop ecx
         pop edi
         rep stosb
         next
 
-	primitive READ4, '@', 0
+	primitive read4, '@', 0
 	pop eax
 	push dword [eax]
 	next
 
-	primitive STORE4, '!', 0
+	primitive store4, '!', 0
 	pop eax			; address
 	pop ebx			; value
 	mov dword [eax], ebx
 	next
 
-	primitive READ1, 'C@', 0
+	primitive read1, 'c@', 0
 	pop eax
 	mov bl, byte [eax]
-	and ebx, 0xFF
+	and ebx, 0xff
 	push ebx
 	next
 
-	primitive STORE1, 'C!', 0
+	primitive store1, 'c!', 0
 	pop eax			; address
 	pop ebx			; value
 	mov byte [eax], bl
 	next
 
-        forthword ADDSTORE4, '+!', 0
-        dd SWAP, OVER, READ4, PLUS 
-        dd SWAP, STORE4
-        dd EXIT
+        forthword addstore4, '+!', 0
+        dd swap, over, read4, plus 
+        dd swap, store4
+        dd exit
 
 	
 ;;; 
-;;; I/O words
+;;; i/o words
 ;;;
 
 section .bss
@@ -612,7 +612,7 @@ internal_var_eof:
 	resd 1
 section .text	
 	
-	primitive EMIT, 'EMIT', 0
+	primitive emit, 'emit', 0
 	mov ebx, 1
         mov ecx, esp    	; cbuf is 1 character on the stack
 	mov edx, 1
@@ -621,11 +621,11 @@ section .text
 	pop eax			; remove character from stack
         next
 
-        forthword NL, 'NL', 0
-        dd LIT, 10, EMIT
-        dd EXIT
+        forthword nl, 'nl', 0
+        dd lit, 10, emit
+        dd exit
 
-	primitive KEY, 'KEY', 0
+	primitive key, 'key', 0
 	push dword 0		; make room on stack for character
 	mov ebx, 0
         mov ecx, esp            ; cbuf
@@ -635,11 +635,11 @@ section .text
         mov dword [internal_var_eof], eax
         next
 
-	primitive EOF, 'EOF', 0
+	primitive eof, 'eof', 0
 	push dword [internal_var_eof]
 	next
 
-        primitive WRITE, 'WRITE', 0
+        primitive write, 'write', 0
         mov ebx, 1
         pop edx
         pop ecx
@@ -647,77 +647,77 @@ section .text
         systemcall
         next
 
-        forthword DISCARD, 'DISCARD', 0
-	dd KEY, EOF, LIT, 2, BRANCHNZ
-        dd EOF, EXIT
-        dd DUP3, CHARINDEX, LIT, -1, EQUALP
-        dd LIT, 4, BRANCHNZ
-        dd NIP, NIP, EOF, EXIT
-        dd DROP, LIT, -23, BRANCH
+        forthword discard, 'discard', 0
+	dd key, eof, lit, 2, branchnz
+        dd eof, exit
+        dd dup3, charindex, lit, -1, equalp
+        dd lit, 4, branchnz
+        dd nip, nip, eof, exit
+        dd drop, lit, -23, branch
 
 
 ;;;
-;;; Compiler words
+;;; compiler words
 ;;;
 
 
-        variable HERE
+        variable here
 
-        variable MODE
+        variable mode
 
-        forthword COMMA, ',', 0
-        dd HERE, READ4, STORE4
-        dd LIT, 4, HERE, ADDSTORE4 
-        dd EXIT
+        forthword comma, ',', 0
+        dd here, read4, store4
+        dd lit, 4, here, addstore4 
+        dd exit
 
-        forthword CCOMMA, 'C,', 0
-        dd HERE, READ4, STORE1
-        dd LIT, 1, HERE, ADDSTORE4 
-        dd EXIT
+        forthword ccomma, 'c,', 0
+        dd here, read4, store1
+        dd lit, 1, here, addstore4 
+        dd exit
 
-        forthword COPYCOMMA, 'COPY,', 0
-        dd SWAP, OVER
-        dd HERE, READ4, STRCPY 
-        dd HERE, ADDSTORE4
-        dd EXIT
+        forthword copycomma, 'copy,', 0
+        dd swap, over
+        dd here, read4, strcpy 
+        dd here, addstore4
+        dd exit
 
-        forthword ZEROSCOMMA, 'ZEROS,', 0
-        dd HERE, READ4, OVER, LIT, 0, MEMSET
-        dd HERE, ADDSTORE4
-        dd EXIT
+        forthword zeroscomma, 'zeros,', 0
+        dd here, read4, over, lit, 0, memset
+        dd here, addstore4
+        dd exit
 
-        forthword CREATE, 'CREATE', 0
-        dd SWAP, OVER
-        dd LATESTWORD, COMMA                    
-        dd COPYCOMMA, LIT, 16, SWAP, MINUS, ZEROSCOMMA
-        dd HERE, READ4, LATEST, STORE4        
-        dd LIT, INTERPRETER, COMMA                    
-        dd EXIT
+        forthword create, 'create', 0
+        dd swap, over
+        dd latestword, comma                    
+        dd copycomma, lit, 16, swap, minus, zeroscomma
+        dd here, read4, latest, store4        
+        dd lit, interpreter, comma                    
+        dd exit
 
-        forthword COMPILEMODE, ']', 0
-        dd LIT, 1, MODE, STORE4 
-        dd EXIT
+        forthword compilemode, ']', 0
+        dd lit, 1, mode, store4 
+        dd exit
 
-        forthword INTERPRETMODE, '[', 1
-        dd LIT, 0, MODE, STORE4 
-        dd EXIT
+        forthword interpretmode, '[', 1
+        dd lit, 0, mode, store4 
+        dd exit
 
-        forthword COLON, ':', 0
-        dd SCANTOKEN, CREATE, COMPILEMODE
-        dd EXIT
+        forthword colon, ':', 0
+        dd scantoken, create, compilemode
+        dd exit
 
-        forthword IMMEDIATE, 'IMMEDIATE', 0
-        dd LATESTWORD, ONEMINUS, DUP 
-        dd READ1, LIT, 1, BITOR, SWAP, STORE1
-        dd EXIT
+        forthword immediate, 'immediate', 0
+        dd latestword, oneminus, dup 
+        dd read1, lit, 1, bitor, swap, store1
+        dd exit
 
-        forthword SEMICOLON, ';', 1
-        dd LIT, EXIT, COMMA, INTERPRETMODE
-        dd EXIT
+        forthword semicolon, ';', 1
+        dd lit, exit, comma, interpretmode
+        dd exit
         
         
 ;;;
-;;; Outer interpreter
+;;; outer interpreter
 ;;; 
 
         
@@ -727,151 +727,151 @@ internal_var_tokbuff:
 
 section .text
         
-        primitive TOKENBUFF, 'TOKENBUFF', 0
+        primitive tokenbuff, 'tokenbuff', 0
         push internal_var_tokbuff
         next
         
-        stringconst ERRLONGTOK, {'ERR: token too long (limit 15)', 10}
+        stringconst errlongtok, {'err: token too long (limit 15)', 10}
 
-        forthword READTOKEN, 'READTOKEN', 0
-        dd LIT, 4, BRANCHNZ
-        dd TOKENBUFF, LIT, 0, EXIT
-        dd LIT, 0
-        dd DUP, TOKENBUFF, PLUS, SWAPD, STORE1, ONEPLUS
-        dd DUP, LIT, 16, LESSTHANP, LIT, 2, BRANCHZ
-        dd ERRLONGTOK, FAIL
-        dd KEY, EOF, LIT, 4, BRANCHNZ
-        dd DROP, TOKENBUFF, SWAP, EXIT
-        dd DUP, WHITESPACEP, LIT, 4, BRANCHNZ
-        dd DROP, TOKENBUFF, SWAP, EXIT
-        dd SWAP, LIT, -37, BRANCH
+        forthword readtoken, 'readtoken', 0
+        dd lit, 4, branchnz
+        dd tokenbuff, lit, 0, exit
+        dd lit, 0
+        dd dup, tokenbuff, plus, swapd, store1, oneplus
+        dd dup, lit, 16, lessthanp, lit, 2, branchz
+        dd errlongtok, fail
+        dd key, eof, lit, 4, branchnz
+        dd drop, tokenbuff, swap, exit
+        dd dup, whitespacep, lit, 4, branchnz
+        dd drop, tokenbuff, swap, exit
+        dd swap, lit, -37, branch
 
-        forthword SCANTOKEN, 'SCANTOKEN', 0
-        dd WHITESPACE, DISCARD, READTOKEN
-        dd EXIT
+        forthword scantoken, 'scantoken', 0
+        dd whitespace, discard, readtoken
+        dd exit
 
-        primitive EXECUTE, 'EXECUTE', 0
+        primitive execute, 'execute', 0
         pop eax
         jmp dword [eax]
 
-        stringconst ERRNOTANUM, 'ERR: not a number'
+        stringconst errnotanum, 'err: not a number'
         
-        forthword SIGNANDNUMSTR, 'SIGNANDNUMSTR', 0
-        dd OVER, READ1, LIT, 45, EQUALP, LIT, 14, BRANCHNZ
-        dd DUP, LIT, 1, EQUALP, LIT, 2, BRANCHNZ
-        dd ERRNOTANUM, FAIL
-        dd LIT, 1, LIT, 2, BRANCH
-        dd LIT, 0
-        dd ROTR
-        dd LIT, 2, PICK, MINUS
-        dd SWAP, LIT, 2, PICK, PLUS
-        dd SWAP, EXIT
+        forthword signandnumstr, 'signandnumstr', 0
+        dd over, read1, lit, 45, equalp, lit, 14, branchnz
+        dd dup, lit, 1, equalp, lit, 2, branchnz
+        dd errnotanum, fail
+        dd lit, 1, lit, 2, branch
+        dd lit, 0
+        dd rotr
+        dd lit, 2, pick, minus
+        dd swap, lit, 2, pick, plus
+        dd swap, exit
 
-        forthword STRTOPOSINT, 'STRTOPOSINT', 0
-        dd LIT, 0, DUP
-        dd LIT, 3, PICK, OVER, PLUS, READ1
-        dd DUP, LIT, 48, LESSTHANP, LIT, 2, BRANCHNZ
-        dd ERRNOTANUM, FAIL
-        dd DUP, LIT, 57, GREATERTHANP, LIT, 2, BRANCHNZ
-        dd ERRNOTANUM, FAIL
-        dd LIT, 48, MINUS
-        dd ROT, LIT, 10, MULTIPLY, PLUS, SWAP, ONEPLUS
-        dd LIT, 2, PICK, OVER, GREATERTHANP
-        dd LIT, -42, BRANCHZ
-        dd DROP, ROTR, DROP2
-        dd EXIT
+        forthword strtoposint, 'strtoposint', 0
+        dd lit, 0, dup
+        dd lit, 3, pick, over, plus, read1
+        dd dup, lit, 48, lessthanp, lit, 2, branchnz
+        dd errnotanum, fail
+        dd dup, lit, 57, greaterthanp, lit, 2, branchnz
+        dd errnotanum, fail
+        dd lit, 48, minus
+        dd rot, lit, 10, multiply, plus, swap, oneplus
+        dd lit, 2, pick, over, greaterthanp
+        dd lit, -42, branchz
+        dd drop, rotr, drop2
+        dd exit
 
-        forthword SIGNED, 'SIGNED', 0
-        dd SWAP, LIT, 1, BRANCHNZ
-        dd EXIT
-        dd LIT, -1, MULTIPLY, EXIT
+        forthword signed, 'signed', 0
+        dd swap, lit, 1, branchnz
+        dd exit
+        dd lit, -1, multiply, exit
 
-        forthword STRTONUM, 'STR>NUM', 0
-        dd SIGNANDNUMSTR, STRTOPOSINT, SIGNED
-        dd EXIT
+        forthword strtonum, 'str>num', 0
+        dd signandnumstr, strtoposint, signed
+        dd exit
 
-        forthword PREVWORD, 'PREVWORD', 0
-        dd LIT, 20, MINUS, READ4
-        dd EXIT
+        forthword prevword, 'prevword', 0
+        dd lit, 20, minus, read4
+        dd exit
 
-        forthword WORDTOFLAGS, 'WORD>FLAGS', 0
-        dd ONEMINUS, READ1, EXIT
+        forthword wordtoflags, 'word>flags', 0
+        dd oneminus, read1, exit
 
-        forthword IMMEDIATEP, 'IMMEDIATE?', 0
-        dd WORDTOFLAGS, LIT, 1, BITAND
-        dd BITNOT, LIT, 1, BITAND
-        dd EXIT
+        forthword immediatep, 'immediate?', 0
+        dd wordtoflags, lit, 1, bitand
+        dd bitnot, lit, 1, bitand
+        dd exit
 
-        forthword WORDTOSTR, 'WORD>STR', 0
-        dd LIT, 16, MINUS
-        dd DUP, CSTRLEN
-        dd EXIT
+        forthword wordtostr, 'word>str', 0
+        dd lit, 16, minus
+        dd dup, cstrlen
+        dd exit
 
-        forthword FINDWORD, 'FINDWORD', 0
-        dd DUP, LIT, 3, BRANCHNZ
-        dd NIP, NIP, EXIT
-        dd DUP, PREVWORD
-        dd OVER, WORDTOSTR
-        dd LIT, 5, PICK, LIT, 5, PICK
-        dd STREQP
-        dd LIT, 4, BRANCHNZ
-        dd DROP, NIP, NIP, EXIT
-        dd NIP, LIT, -29, BRANCH
+        forthword findword, 'findword', 0
+        dd dup, lit, 3, branchnz
+        dd nip, nip, exit
+        dd dup, prevword
+        dd over, wordtostr
+        dd lit, 5, pick, lit, 5, pick
+        dd streqp
+        dd lit, 4, branchnz
+        dd drop, nip, nip, exit
+        dd nip, lit, -29, branch
 
-        variable LATEST
+        variable latest
 
-        forthword LATESTWORD, 'LATESTWORD', 0
-        dd LATEST, READ4
-        dd EXIT
+        forthword latestword, 'latestword', 0
+        dd latest, read4
+        dd exit
         
-        forthword WORDF, 'WORD', 0
-        dd LATESTWORD, FINDWORD
-        dd EXIT
+        forthword wordf, 'word', 0
+        dd latestword, findword
+        dd exit
 
-        forthword EXECUTEORCOMMA, 'EXECUTEORCOMMA', 0
-        dd DUP, IMMEDIATEP
-        dd LIT, 5, BRANCHZ
-        dd MODE, READ4
-        dd LIT, 2, BRANCHNZ
-        dd EXECUTE, EXIT
-        dd COMMA, EXIT
+        forthword executeorcomma, 'executeorcomma', 0
+        dd dup, immediatep
+        dd lit, 5, branchz
+        dd mode, read4
+        dd lit, 2, branchnz
+        dd execute, exit
+        dd comma, exit
 
-        forthword NUMORCOMMA, 'NUMORCOMMA', 0
-        dd MODE, READ4
-        dd LIT, 1, BRANCHNZ
-        dd EXIT
-        dd LIT, LIT, COMMA, COMMA, EXIT
+        forthword numorcomma, 'numorcomma', 0
+        dd mode, read4
+        dd lit, 1, branchnz
+        dd exit
+        dd lit, lit, comma, comma, exit
 
-        forthword REPL, 'REPL', 0
-        dd SCANTOKEN, DUP, LIT, 1, BRANCHNZ
-        dd QUIT
-        dd DUP2, WORDF
-        dd DUP, LIT, 6, BRANCHZ
-        dd NIP, NIP, EXECUTEORCOMMA, LIT, 3, BRANCH
-        dd DROP, STRTONUM, NUMORCOMMA
-        dd LIT, -24, BRANCH
+        forthword repl, 'repl', 0
+        dd scantoken, dup, lit, 1, branchnz
+        dd quit
+        dd dup2, wordf
+        dd dup, lit, 6, branchz
+        dd nip, nip, executeorcomma, lit, 3, branch
+        dd drop, strtonum, numorcomma
+        dd lit, -24, branch
         
         
 ;;;
-;;; Main
+;;; main
 ;;;
 
 
 bootstrap:
-	dd REPL
+	dd repl
 
-STARTSYMBOL:
+startsymbol:
         ;; set up dictionary pointer
         mov eax, lastword
-        mov dword [var_data_LATEST], eax
+        mov dword [var_data_latest], eax
 
-        ;; set up HERE pointer
+        ;; set up here pointer
         mov eax, alloc_base
-        mov dword [var_data_HERE], eax
+        mov dword [var_data_here], eax
 
         ;; set up outer interpreter mode
         mov eax, 0
-        mov dword [var_data_MODE], eax
+        mov dword [var_data_mode], eax
 
         ;; set up return stack
         mov ebp, return_stack_base	

@@ -1,204 +1,204 @@
-: LIT,
-  LIT LIT , , ;
+: lit,
+  lit lit , , ;
 
-: DUP,
-  LIT DUP , ;
+: dup,
+  lit dup , ;
 
 : /
-  /MOD DROP ;
+  /mod drop ;
 
-: MOD
-  /MOD NIP ;  
+: mod
+  /mod nip ;  
 
-: BRANCHZ,
-  0 LIT,
-  LIT BRANCHZ ,
-  HERE @ 8 - ;
+: branchz,
+  0 lit,
+  lit branchz ,
+  here @ 8 - ;
 
-: BRANCHNZ,
-  0 LIT,
-  LIT BRANCHNZ ,
-  HERE @ 8 - ;
+: branchnz,
+  0 lit,
+  lit branchnz ,
+  here @ 8 - ;
 
-: BRANCH,
-  0 LIT,
-  LIT BRANCH ,
-  HERE @ 8 - ;
+: branch,
+  0 lit,
+  lit branch ,
+  here @ 8 - ;
 
-: BRANCHOFF!
-  OVER
+: branchoff!
+  over
   - 4 / 2 -
-  SWAP ! ;
+  swap ! ;
 
-: IF
-  BRANCHNZ,
-  ; IMMEDIATE
+: if
+  branchnz,
+  ; immediate
 
-: UNLESS
-  BRANCHZ,
-  ; IMMEDIATE
+: unless
+  branchz,
+  ; immediate
     
-: ELSE
-  BRANCH, SWAP
-  HERE @ BRANCHOFF!
-  ; IMMEDIATE
+: else
+  branch, swap
+  here @ branchoff!
+  ; immediate
 
-: END
-  HERE @ BRANCHOFF!
-  ; IMMEDIATE
+: end
+  here @ branchoff!
+  ; immediate
 
-: WHILE
-  HERE @
-  BRANCHNZ,
-  ; IMMEDIATE
+: while
+  here @
+  branchnz,
+  ; immediate
 
-: UNTIL
-  HERE @
-  BRANCHZ,
-  ; IMMEDIATE
+: until
+  here @
+  branchz,
+  ; immediate
 
-: LOOP
-  BRANCH, ROT BRANCHOFF!
-  HERE @ BRANCHOFF!
-  ; IMMEDIATE
+: loop
+  branch, rot branchoff!
+  here @ branchoff!
+  ; immediate
 
-: RECUR
-  BRANCH, LATESTWORD 4 +
-  BRANCHOFF!
-  ; IMMEDIATE
+: recur
+  branch, latestword 4 +
+  branchoff!
+  ; immediate
 
 : \
-  SCANTOKEN WORD
-  MODE @ UNLESS
-    LIT,
-  END
-  ; IMMEDIATE
+  scantoken word
+  mode @ unless
+    lit,
+  end
+  ; immediate
 
 : //
-  KEY 10 =
-  UNLESS RECUR END
-  ; IMMEDIATE
+  key 10 =
+  unless recur end
+  ; immediate
 
-// Now we gain the ability to insert comments in a forth program
+// now we gain the ability to insert comments in a forth program
 
 : ) ;
 
 : (
-  SCANTOKEN
-  \ ) WORD>STR
-  STR= UNLESS
-    RECUR
-  END
-  ; IMMEDIATE
+  scantoken
+  \ ) word>str
+  str= unless
+    recur
+  end
+  ; immediate
 
 // ( x y -- z ) are used to place a stack comment
 // to indicate the input and output stacks of a word
 
-: CHAR:
-  SCANTOKEN DROP C@
-  MODE @ UNLESS
-    LIT,
-  END
-  ; IMMEDIATE
+: char:
+  scantoken drop c@
+  mode @ unless
+    lit,
+  end
+  ; immediate
 
-: NEG ( x -- -x )
-  0 SWAP - ;
+: neg ( x -- -x )
+  0 swap - ;
 
-: NEG? ( x -- ? )
+: neg? ( x -- ? )
   0 < ;
 
-: KEY="? ( -- ch ? )
-  KEY DUP
-  CHAR: "
+: key="? ( -- ch ? )
+  key dup
+  char: "
   = ;
 
-: ACCEPTSTR ( -- buff len )
-  HERE @
-  KEY="? UNTIL     // drop chars until first "
-    DROP KEY="?
-  LOOP DROP
-  KEY="? UNTIL     // append chars until next "
-    C, KEY="?
-  LOOP DROP
-  DUP HERE @ SWAP -
+: acceptstr ( -- buff len )
+  here @
+  key="? until     // drop chars until first "
+    drop key="?
+  loop drop
+  key="? until     // append chars until next "
+    c, key="?
+  loop drop
+  dup here @ swap -
   ;
 
-: STRING: ( -- )
-  SCANTOKEN ACCEPTSTR 2SWAP
-  CREATE SWAP LIT, LIT,
-  LIT EXIT ,
-  ; IMMEDIATE
+: string: ( -- )
+  scantoken acceptstr 2swap
+  create swap lit, lit,
+  lit exit ,
+  ; immediate
 
-// Now we are able to create string constants like below:
-//   STRING: Greeting "Welcome to aforth!"
-//   Greeting WRITE NL
+// now we are able to create string constants like below:
+//   string: greeting "welcome to aforth!"
+//   greeting write nl
 // this will output:
-//   Welcome to aforth!
+//   welcome to aforth!
 
-: CELLS ( n -- )
+: cells ( n -- )
   4 * ;
 
-: BYTES ( n -- ) ;
+: bytes ( n -- ) ;
 
-: ALLOCATE ( n -- )
-  HERE +! ;
+: allocate ( n -- )
+  here +! ;
 
-: VAR: ( -- )
-  SCANTOKEN CREATE
-  HERE @ 3 CELLS +  // Space for LIT, XXXXX, EXIT
-  LIT, LIT EXIT ,
-  ; IMMEDIATE
+: var: ( -- )
+  scantoken create
+  here @ 3 cells +  // space for lit, xxxxx, exit
+  lit, lit exit ,
+  ; immediate
 
-// Now we can create variables at runtime like below:
-//   VAR: A 1 CELLS ALLOCATE
-//   VAR: B 15 BYTES ALLOCATE
+// now we can create variables at runtime like below:
+//   var: a 1 cells allocate
+//   var: b 15 bytes allocate
 
-VAR: N>S_BUFF 15 BYTES ALLOCATE
-VAR: N>S_PTR   1 CELLS ALLOCATE
+var: n>s_buff 15 bytes allocate
+var: n>s_ptr   1 cells allocate
 
 : 1-@ ( var -- )
-  DUP @ 1- SWAP ! ;
+  dup @ 1- swap ! ;
 
-: NUM>STR ( n -- buff len )
-  DUP IF
-    DROP
-    CHAR: 0 N>S_BUFF C!
-    N>S_BUFF 1 EXIT
-  END
-  N>S_BUFF 15 + N>S_PTR !
-  DUP NEG? IF
-    NEG TRUE
-  ELSE
-    FALSE
-  END SWAP
-  DUP UNTIL
-    10 /MOD
-    CHAR: 0 +
-    N>S_PTR 1-@
-    N>S_PTR @ C!
-    DUP
-  LOOP DROP
-  IF
-    N>S_PTR 1-@
-    CHAR: - N>S_PTR @ C!
-  END
-  N>S_PTR @
-  N>S_BUFF 15 + N>S_PTR @ - ;
+: num>str ( n -- buff len )
+  dup if
+    drop
+    char: 0 n>s_buff c!
+    n>s_buff 1 exit
+  end
+  n>s_buff 15 + n>s_ptr !
+  dup neg? if
+    neg true
+  else
+    false
+  end swap
+  dup until
+    10 /mod
+    char: 0 +
+    n>s_ptr 1-@
+    n>s_ptr @ c!
+    dup
+  loop drop
+  if
+    n>s_ptr 1-@
+    char: - n>s_ptr @ c!
+  end
+  n>s_ptr @
+  n>s_buff 15 + n>s_ptr @ - ;
 
-: SPC ( -- )
-  32 EMIT ;
+: spc ( -- )
+  32 emit ;
 
-: WORD. ( word -- )
-  WORD>STR WRITE NL ;
+: word. ( word -- )
+  word>str write nl ;
 
-: WORDS. ( -- )
-  LATESTWORD
-  DUP UNTIL
-    DUP WORD>STR WRITE SPC
-    PREVWORD DUP
-  LOOP
-  DROP NL ;
+: words. ( -- )
+  latestword
+  dup until
+    dup word>str write spc
+    prevword dup
+  loop
+  drop nl ;
 
 : . ( n -- )
-  NUM>STR WRITE NL ;
+  num>str write nl ;
 
