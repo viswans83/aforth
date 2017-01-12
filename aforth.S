@@ -506,17 +506,21 @@ boolnot_true:
         mov esi, eax
         next
         
-        forthword charindex, 'charindex', 0
-        dd rot
-        dd lit, 0
-        dd dup2, plus, read1
-        dd lit, 3, pick, equalp
-        dd lit, 4, branchnz
-        dd nip, nip, nip, exit
-        dd oneplus, lit, 3, pick, over, greaterthanp
-        dd lit, 5, branchz
-        dd drop2, drop2, lit, -1, exit
-        dd lit, -31, branch
+        primitive charindex, 'charindex', 0
+        pop eax
+        pop ecx
+        pop edi
+        mov ebx, edi
+        repne scasb
+        jz charindex_found
+        mov eax, -1
+        push eax
+        next
+charindex_found:
+        sub edi, ebx
+        dec edi
+        push edi
+        next
 
         primitive cstrlen, 'cstrlen', 0
         pop edi
