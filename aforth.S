@@ -627,6 +627,8 @@ streqp_done:
         push eax
         next
 
+        ;; a string containing the characters:
+        ;;   space(32) carriage-return(13) newline(10) tab(9)
         stringconst whitespace, {32, 13, 10, 9}
 
         forthword whitespacep, 'whitespace?', 0
@@ -747,32 +749,49 @@ section .text
 ;;;
 
 
+        ;; points to start of free memory
         variable here
 
+        ;; compile / interpret mode
+        ;; 0 => interpret mode
+        ;; 1 => compile mode
         variable mode
 
         forthword comma, ',', 0
+        ;; ( x -- )
+        ;; store x at here, advance here by 1 cell
         dd here, read4, store4
         dd lit, 4, here, addstore4 
         dd exit
 
         forthword ccomma, 'c,', 0
+        ;; ( ch -- )
+        ;; store ch at here, advance here by 1 byte
         dd here, read4, store1
         dd lit, 1, here, addstore4 
         dd exit
 
         forthword copycomma, 'copy,', 0
+        ;; ( addr len -- )
+        ;; copy len bytes starting at addr to here and
+        ;; advance here
         dd swap, over
         dd here, read4, strcpy 
         dd here, addstore4
         dd exit
 
         forthword zeroscomma, 'zeros,', 0
+        ;; ( count -- )
+        ;; fill count bytes starting from here with zeros
+        ;; and advance here
         dd here, read4, over, lit, 0, memset
         dd here, addstore4
         dd exit
 
         forthword create, 'create', 0
+        ;; ( buff len -- )
+        ;; start a word definition for word named(buff, len) at here
+        ;; and advance here
         dd swap, over
         dd latestword, comma                    
         dd copycomma, lit, 16, swap, minus, zeroscomma
@@ -781,23 +800,35 @@ section .text
         dd exit
 
         forthword compilemode, ']', 0
+        ;; ( -- )
+        ;; switch to compile mode
         dd lit, 1, mode, store4 
         dd exit
 
         forthword interpretmode, '[', 1
+        ;; ( -- )
+        ;; switch to interpret mode
         dd lit, 0, mode, store4 
         dd exit
 
         forthword colon, ':', 0
+        ;; ( -- )
+        ;; scan a string from stdin and create a word thus named
+        ;; and switch to compile mode
         dd scantoken, create, compilemode
         dd exit
 
         forthword immediate, 'immediate', 0
+        ;; ( -- )
+        ;; set latest word as an immediate word
         dd latestword, oneminus, dup 
         dd read1, lit, 1, bitor, swap, store1
         dd exit
 
         forthword semicolon, ';', 1
+        ;; ( -- )
+        ;; complete current word definition by compiling the
+        ;; exit word and then switch back to interpret mode
         dd lit, exit, comma, interpretmode
         dd exit
         
@@ -878,6 +909,7 @@ section .text
         stringconst errnotanum, 'err: not a number'
         
         forthword signandnumstr, 'signandnumstr', 0
+        ;; ( buff len -- -ve? buff' len' )
         dd over, read1, lit, 45, equalp, lit, 14, branchnz
         dd dup, lit, 1, equalp, lit, 2, branchnz
         dd errnotanum, fail
@@ -889,6 +921,7 @@ section .text
         dd swap, exit
 
         forthword strtoposint, 'strtoposint', 0
+        ;; ( buff len -- +n )
         dd lit, 0, dup
         dd lit, 3, pick, over, plus, read1
         dd dup, lit, 48, lessthanp, lit, 2, branchnz
@@ -903,32 +936,39 @@ section .text
         dd exit
 
         forthword signed, 'signed', 0
+        ;; ( -ve? +n -- +n/-n )
         dd swap, lit, 1, branchnz
         dd exit
         dd lit, -1, multiply, exit
 
         forthword strtonum, 'str>num', 0
+        ;; ( buff len -- n )
         dd signandnumstr, strtoposint, signed
         dd exit
 
         forthword prevword, 'prevword', 0
+        ;; ( word -- prevword )
         dd lit, 20, minus, read4
         dd exit
 
         forthword wordtoflags, 'word>flags', 0
+        ;; ( word -- flags )
         dd oneminus, read1, exit
 
         forthword immediatep, 'immediate?', 0
+        ;; ( word -- ? )
         dd wordtoflags, lit, 1, bitand
         dd bitnot, lit, 1, bitand
         dd exit
 
         forthword wordtostr, 'word>str', 0
+        ;; ( word -- buff len )
         dd lit, 16, minus
         dd dup, cstrlen
         dd exit
 
         forthword findword, 'findword', 0
+        ;; ( buff len word -- word/0 )
         dd dup, lit, 3, branchnz
         dd nip, nip, exit
         dd dup, prevword
@@ -939,17 +979,25 @@ section .text
         dd drop, nip, nip, exit
         dd nip, lit, -29, branch
 
+        ;; points to the last defined word
+        ;; i.e. the begining of the aforth dictionary
         variable latest
 
         forthword latestword, 'latestword', 0
+        ;; ( -- word )
+        ;; places last defined word on top of stack
         dd latest, read4
         dd exit
         
         forthword wordf, 'word', 0
+        ;; ( buff len -- word/0 )
         dd latestword, findword
         dd exit
 
         forthword executeorcomma, 'executeorcomma', 0
+        ;; ( ...a word -- ...b )
+        ;; interpret mode: execute word
+        ;; compile mode: compiles word into current definition
         dd dup, immediatep
         dd lit, 5, branchz
         dd mode, read4
@@ -958,12 +1006,16 @@ section .text
         dd comma, exit
 
         forthword numorcomma, 'numorcomma', 0
+        ;; ( ...a n -- ...b )
+        ;; interpret mode: does nothing
+        ;; compile mode: compiles literal n into current definition
         dd mode, read4
         dd lit, 1, branchnz
         dd exit
         dd lit, lit, comma, comma, exit
 
         forthword repl, 'repl', 0
+        ;; ( ...a -- ...b )
         dd scantoken, dup, lit, 1, branchnz
         dd quit
         dd dup2, wordf
@@ -983,6 +1035,7 @@ bootstrap:
 
 startsymbol:
         ;; set up dictionary pointer
+        ;; (no further words should be defined within assembly)
         mov eax, lastword
         mov dword [var_data_latest], eax
 
