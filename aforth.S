@@ -179,11 +179,15 @@ interpreter:
 ;;; core words
 ;;; 
         
+
 	primitive exit, 'exit', 0
-	poprs esi
+        ;; ( -- )
+        ;; return from currently executing forth word
+        poprs esi
 	next
 
         primitive swap, 'swap', 0
+        ;; ( x y -- y x )
         pop eax
         pop ebx
         push eax
@@ -191,6 +195,7 @@ interpreter:
         next
 
         primitive swap2, '2swap', 0
+        ;; ( x1 x2 y1 y2 -- y1 y2 x1 x2 )
         pop ebx
         pop eax
         pop edx
@@ -202,6 +207,7 @@ interpreter:
         next
 
         primitive swapd, 'swapd', 0
+        ;; ( x y z -- y x z )
         pop eax
         pop ebx
         pop ecx
@@ -211,11 +217,13 @@ interpreter:
         next
         
 	primitive dup, 'dup', 0
+        ;; ( x -- x x )
 	mov eax, dword [esp]
 	push eax
 	next
 
 	primitive dup2, '2dup', 0
+        ;; ( x y -- x y x y )
 	mov eax, dword [esp+4]
 	push eax
 	mov eax, dword [esp+4]
@@ -223,6 +231,7 @@ interpreter:
 	next
 
         primitive dup3, '3dup', 0
+        ;; ( x y z -- x y z x y z )
         mov eax, dword [esp+8]
 	push eax
 	mov eax, dword [esp+8]
@@ -232,32 +241,38 @@ interpreter:
         next
 
 	primitive drop, 'drop', 0
+        ;; ( x -- )
 	pop eax
 	next
 
 	primitive drop2, '2drop', 0
+        ;; ( x y -- )
 	pop eax
 	pop eax
 	next
 
         primitive drop3, '3drop', 0
+        ;; ( x y z -- )
         pop eax
         pop eax
         pop eax
         next
 
 	primitive over, 'over', 0
+        ;; ( x y -- x y x )
 	mov eax, dword [esp + 4]
 	push eax
 	next
 
 	primitive nip, 'nip', 0
+        ;; ( x y -- y )
 	pop eax
 	pop ebx
 	push eax
 	next
 
         primitive rot, 'rot', 0
+        ;; ( x y z -- y z x )
         pop ecx
         pop ebx
         pop eax
@@ -267,6 +282,7 @@ interpreter:
         next
 
         primitive rotr, '-rot', 0
+        ;; ( x y z --  z x y )
         pop ecx
         pop ebx
         pop eax
@@ -276,6 +292,9 @@ interpreter:
         next
 
         primitive pick, 'pick', 0
+        ;; 0 pick => ( x 0 -- x x )
+        ;; 1 pick => ( x y 1 -- x y x )
+        ;; 2 pick => ( x y z 2 -- x y z x )
         pop eax
         mov ebx, dword [esp + 4*eax]
         push ebx
@@ -288,6 +307,9 @@ interpreter:
         
         
 	primitive equalp, '=', 0
+        ;; ( x y -- ? )
+        ;; 0 => true
+        ;; 1 => false
 	pop eax
 	pop ebx
 	cmp eax, ebx
@@ -299,10 +321,12 @@ equalp_true:
 	next
 
 	forthword notequalp, '!=', 0
+        ;; ( x y -- ? )
 	dd equalp, boolnot
         dd exit
 
         primitive lessthanp, '<', 0
+        ;; ( x y -- ? )
         pop ebx
         pop eax
         cmp eax, ebx
@@ -314,22 +338,34 @@ lessthanp_true:
         next
 
         forthword greaterthanp, '>', 0
+        ;; ( x y -- ? )
         dd dup2, lessthanp
         dd rotr, equalp
         dd boolor, boolnot
         dd exit
         
         primitive lit, 'lit', 0
+        ;; ( -- x )
+        ;; treat the following word in definition as
+        ;; a literal value and push it onto the stack
         push dword [esi]
         add esi, 4
         next
 
 	primitive branch, 'branch', 0
+        ;; ( x -- )
+        ;; jump x words counting from the following word
+        ;; 0 branch => no operation
+        ;; 1 branch => skip the next word
+        ;; 2 branch => skip the next 2 words
 	pop eax
 	lea esi, [esi + 4*eax]
 	next
 
 	primitive branchz, 'branchz', 0
+        ;; ( x? y -- )
+        ;; jump y words counting from the following word if
+        ;; x is zero
 	pop eax			; offset
 	pop ebx			; value
 	cmp ebx, 0
@@ -340,6 +376,9 @@ branchz_jump:
 	next
 
         primitive branchnz, 'branchnz', 0
+        ;; ( x? y -- )
+        ;; jump y words counting from the following word if
+        ;; x is not zero
 	pop eax			; offset
 	pop ebx			; value
 	cmp ebx, 0
@@ -350,11 +389,17 @@ branchnz_jump:
 	next
 
         forthword choose, '?', 0
+        ;; ( x y ? -- x/y )
+        ;; choose x if top of stack is true (zero)
+        ;; choose y if top of stack is false (non-zero)
         dd lit, 2, branchnz
         dd drop, exit
         dd nip, exit
 
         forthword choose2, '2?', 0
+        ;; ( x1 y1 x2 y2 ? -- x1/x2 y1/y2 )
+        ;; choose x1 y1 if top of stack is true (zero)
+        ;; choose x2 y2 if top of stack is false (non-zero)
         dd lit, 2, branchnz
         dd drop2, exit
         dd rot, drop
@@ -367,18 +412,25 @@ branchnz_jump:
 ;;;
 
         primitive quit, 'quit', 0
+        ;; ( -- )
+        ;; terminate program with 0 return code
         mov ebx, 0
         mov eax, 1
 	systemcall
         next
 
         primitive errorquit, 'errorquit', 0
+        ;; ( -- )
+        ;; terminate program with 1 return code
         mov ebx, 1
         mov eax, 1
         systemcall
         next
 
         forthword fail, 'fail', 0
+        ;; ( buff len -- )
+        ;; write string to stdout and terminate with failure
+        ;; return code
         dd write, errorquit
 
         
@@ -387,24 +439,29 @@ branchnz_jump:
 ;;; 
 
 	primitive oneplus, '1+', 0
+        ;; ( x -- x+1 )
 	inc dword [esp]
 	next
 
 	primitive oneminus, '1-', 0
+        ;; ( x -- x-1 )
 	dec dword [esp]
 	next
 
 	primitive plus, '+', 0
+        ;; ( x y -- x+y )
 	pop eax
 	add dword [esp], eax
 	next
 
 	primitive minus, '-', 0
+        ;; ( x y -- x-y )
 	pop eax
 	sub dword [esp], eax
 	next
 
         primitive multiply, '*', 0
+        ;; ( x y -- x*y )
         pop eax
         pop ebx
         imul ebx
@@ -412,6 +469,8 @@ branchnz_jump:
         next
 
         primitive divmod, '/mod', 0
+        ;; ( x y -- q r )
+        ;; divide x by y producing quotient q and remainder r
         pop ebx
         pop eax
         cdq
@@ -426,6 +485,7 @@ branchnz_jump:
 ;;;
 
         primitive booland, 'and', 0
+        ;; ( x y -- x&&y )
         pop ebx
         pop eax
         cmp eax, 0
@@ -437,6 +497,7 @@ booland_2nd:
         next
 
         primitive boolor, 'or', 0
+        ;; ( x y -- x||y )
         pop ebx
         pop eax
         cmp eax, 0
@@ -448,6 +509,7 @@ boolor_2nd:
         next
 
         primitive boolnot, 'not', 0
+        ;; ( x -- !x )
         pop eax
         cmp eax, 0
         je boolnot_true
@@ -458,10 +520,12 @@ boolnot_true:
         next
 
         primitive true, 'true', 0
+        ;; ( -- ? )
         push dword 0
         next
 
         primitive false, 'false', 0
+        ;; ( -- ? )
         push dword 1
         next
 
@@ -472,6 +536,7 @@ boolnot_true:
 
 
         primitive bitor, '|', 0
+        ;; ( x y -- x|y )
         pop ebx     
         pop eax
         or eax, ebx
@@ -479,6 +544,7 @@ boolnot_true:
         next
 
         primitive bitand, '&', 0
+        ;; ( x y -- x&y )
         pop ebx
         pop eax
         and eax, ebx
@@ -486,6 +552,7 @@ boolnot_true:
         next
 
         primitive bitnot, 'invert', 0
+        ;; ( x -- x' )
         pop eax
         not eax
         push eax
@@ -498,6 +565,7 @@ boolnot_true:
 
 
         primitive strcpy, 'strcpy', 0
+        ;; ( src length dest -- )
         mov eax, esi
         pop edi
         pop ecx
@@ -507,6 +575,7 @@ boolnot_true:
         next
         
         primitive charindex, 'charindex', 0
+        ;; ( buff len ch -- index/-1 )
         pop eax
         pop ecx
         pop edi
@@ -534,6 +603,7 @@ charindex_found:
         next
 
         primitive streqp, 'str=', 0
+        ;; ( buff1 len1 buff2 len2 -- ? )
         push ebp
         mov ebp, esp
         push esi
@@ -560,6 +630,7 @@ streqp_done:
         stringconst whitespace, {32, 13, 10, 9}
 
         forthword whitespacep, 'whitespace?', 0
+        ;; ( ch -- ? )
         dd whitespace, rot, charindex
         dd lit, -1, notequalp
         dd exit
@@ -571,6 +642,8 @@ streqp_done:
         
 
         primitive memset, 'memset', 0
+        ;; ( addr count byteval -- )
+        ;; store byteval in count bytes starting at addr
         pop eax
         pop ecx
         pop edi
@@ -578,17 +651,20 @@ streqp_done:
         next
 
 	primitive read4, '@', 0
+        ;; ( addr -- x )
 	pop eax
 	push dword [eax]
 	next
 
 	primitive store4, '!', 0
+        ;; ( x addr -- )
 	pop eax			; address
 	pop ebx			; value
 	mov dword [eax], ebx
 	next
 
 	primitive read1, 'c@', 0
+        ;; ( addr -- ch )
 	pop eax
 	mov bl, byte [eax]
 	and ebx, 0xff
@@ -596,12 +672,15 @@ streqp_done:
 	next
 
 	primitive store1, 'c!', 0
+        ;; ( ch addr -- )
 	pop eax			; address
 	pop ebx			; value
 	mov byte [eax], bl
 	next
 
         forthword addstore4, '+!', 0
+        ;; ( x addr -- )
+        ;; add x to value at addr
         dd swap, over, read4, plus 
         dd swap, store4
         dd exit
@@ -617,6 +696,8 @@ internal_var_eof:
 section .text	
 	
 	primitive emit, 'emit', 0
+        ;; ( ch -- )
+        ;; write one character to stdout
 	mov ebx, 1
         mov ecx, esp    	; cbuf is 1 character on the stack
 	mov edx, 1
@@ -626,10 +707,16 @@ section .text
         next
 
         forthword nl, 'nl', 0
+        ;; ( -- )
+        ;; write new line to stdout
         dd lit, 10, emit
         dd exit
 
 	primitive key, 'key', 0
+        ;; ( -- ch? )
+        ;; reads a character from stdin
+        ;; if end of stream is reached, eof is set to true and the
+        ;; character placed on top of stack should be discarded
 	push dword 0		; make room on stack for character
 	mov ebx, 0
         mov ecx, esp            ; cbuf
@@ -640,24 +727,19 @@ section .text
         next
 
 	primitive eof, 'eof', 0
+        ;; ( -- ? )
 	push dword [internal_var_eof]
 	next
 
         primitive write, 'write', 0
+        ;; ( buff len -- )
+        ;; write string starting at buff and length len to stdout
         mov ebx, 1
         pop edx
         pop ecx
         mov eax, 4
         systemcall
         next
-
-        forthword discard, 'discard', 0
-	dd key, eof, lit, 2, branchnz
-        dd eof, exit
-        dd dup3, charindex, lit, -1, equalp
-        dd lit, 4, branchnz
-        dd nip, nip, eof, exit
-        dd drop, lit, -23, branch
 
 
 ;;;
@@ -732,29 +814,64 @@ internal_var_tokbuff:
 section .text
         
         primitive tokenbuff, 'tokenbuff', 0
+        ;; ( -- addr )
+        ;; places start address of the token buffer on stack
         push internal_var_tokbuff
         next
         
         stringconst errlongtok, {'err: token too long (limit 15)', 10}
 
-        forthword readtoken, 'readtoken', 0
+        forthword discard, 'discard', 0
+        ;; ( buff len -- ch? eof? )
+        ;; read characters from stdin until a character not present
+        ;; in the string(buff,len) is encountered. place this non-matching
+        ;; character and eof flag on stack. if eof is true, then ch should
+        ;; be discarded
+	dd key, eof, lit, 4, branchnz
+        ;; ( buff len ch? )
+        dd nip, nip, eof, exit
+        ;; ( buff len ch )
+        dd dup3, charindex, lit, -1, equalp
+        ;; ( buff len ch ? )
         dd lit, 4, branchnz
-        dd tokenbuff, lit, 0, exit
+        ;; ( buff len ch )
+        dd nip, nip, eof, exit
+        ;; ( buff len ch )
+        dd drop, lit, -25, branch
+
+        forthword readtoken, 'readtoken', 0
+        ;; ( ch? eof? -- buff len )
+        ;; read a token (represented by buff and len) whose first character
+        ;; is ch. if end of stream was reached then len will be zero
+        dd lit, 5, branchnz
+        ;; ( ch? )
+        dd drop, tokenbuff, lit, 0, exit
         dd lit, 0
+        ;; ( ch index )
         dd dup, tokenbuff, plus, swapd, store1, oneplus
+        ;; ( index+1 )
         dd dup, lit, 16, lessthanp, lit, 2, branchz
+        ;; ( index+1 )
         dd errlongtok, fail
+        ;; ( index+1 )
         dd key, eof, lit, 4, branchnz
+        ;; ( index+1 ch? )
         dd drop, tokenbuff, swap, exit
+        ;; ( index+1 ch )
         dd dup, whitespacep, lit, 4, branchnz
+        ;; ( index+1 ws )
         dd drop, tokenbuff, swap, exit
+        ;; ( index+1 ch )
         dd swap, lit, -37, branch
 
         forthword scantoken, 'scantoken', 0
+        ;; ( -- buff len )
         dd whitespace, discard, readtoken
         dd exit
 
         primitive execute, 'execute', 0
+        ;; ( ...a word -- ...b )
+        ;; execute word on top of stack
         pop eax
         jmp dword [eax]
 
