@@ -269,6 +269,14 @@ interpreter:
         pop eax
         next
 
+        primitive ndrop, 'ndrop'
+        ;; 0 ndrop => ( x 0 -- x )
+        ;; 1 ndrop => ( x 1 -- )
+        ;; 2 ndrop => ( x y 2 -- )
+        pop eax
+        lea esp, [esp + 4*eax]
+        next
+
 	primitive over, 'over'
         ;; ( x y -- x y x )
 	mov eax, dword [esp + 4]
@@ -842,9 +850,7 @@ section .text
         ;; places start address of the token buffer on stack
         push internal_var_tokbuff
         next
-        
-        stringconst errlongtok, {'err: token too long (limit 15)', 10}
-
+                
         forthword discard, 'discard'
         ;; ( buff len -- ch? eof? )
         ;; read characters from stdin until a character not present
@@ -862,6 +868,8 @@ section .text
         dd nip, nip, eof, exit
         ;; ( buff len ch )
         dd drop, lit, -25, branch
+
+        stringconst errlongtok, {'err: token too long (limit 15)', 10}
 
         forthword readtoken, 'readtoken'
         ;; ( ch? eof? -- buff len )
