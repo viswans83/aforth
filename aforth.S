@@ -16,6 +16,7 @@
 ;;;
 ;;; macro definitions
 ;;; 
+
         
 ;;; linux 32-bit style syscall abi handler:
 ;;; 1) pass syscall number in eax
@@ -60,6 +61,21 @@
 	sub ebp, 4
 %endmacro	
 
+        
+;;;
+;;; how words are structured in the `aforth` dictionary:
+;;; +-----------------------------------------------------------+
+;;; | link | name | len | flags | interpreter | definition ...  |
+;;; +-----------------------------------------------------------+
+;;;
+;;; link        : address to the previously defined word (4 bytes)
+;;; name        : max 256 bytes (variable size)
+;;; len         : name length (1 byte)
+;;; flags       : to control behaviour of this word (1 byte)
+;;; interpreter : pointer to x86 code that can execute this word (4 bytes)
+;;; definition  : either x86 code or a pointers to other words (variable size)
+;;; 
+
 ;;;
 ;;; keep track of the last defined word in assembly
 ;;; in order to maintain a chain of words in the
@@ -67,22 +83,14 @@
 ;;; 
 %define lastword 0
 
-;;; flags:
-%define F_IMMEDIATE 1
-        
-;;;
-;;; how words are structured in the `aforth` dictionary:
-;;; +-----------------------------------------------------------+
-;;; | link | name | flags | interpreter | definition ...        |
-;;; +-----------------------------------------------------------+
-;;;
-;;; link        : address to the previously defined word (4 bytes)
-;;; name        : max 15 bytes (0 padded on the right) (16 bytes)
-;;; flags       : to control behaviour of this word (1 byte)
-;;; interpreter : pointer to x86 code that can execute this word (4 bytes)
-;;; definition  : either x86 code or a pointers to other words (variable size)
 ;;; 
-        
+;;; allowed flags:
+;;;   1 => word is immediate
+;;;   2 => word is hidden
+;;; 
+%define F_IMMEDIATE     1
+%define F_HIDDEN        2
+
 ;;;
 ;;; macro: primitive asmname, 'wordname', flags
 ;;; 
@@ -95,7 +103,7 @@
         dd lastword
 %1_name:
         db %2
-        times 15-($-%1_name) db 0
+        db $ - %1_name
         db %3
 %1:
         dd %1_asm
@@ -118,7 +126,7 @@
         dd lastword
 %1_name:
         db %2
-        times 15-($-%1_name) db 0
+        db $ - %1_name
         db %3
 %1:
         dd interpreter
@@ -594,17 +602,6 @@ charindex_found:
         push edi
         next
 
-        primitive cstrlen, 'cstrlen'
-        pop edi
-        mov al, 0
-        mov ecx, 15
-        repne scasb
-        mov eax, 15
-        sub eax, ecx
-        dec eax
-        push eax
-        next
-
         primitive streqp, 'str='
         ;; ( buff1 len1 buff2 len2 -- ? )
         push ebp
@@ -783,21 +780,14 @@ section .text
         dd here, addstore4
         dd exit
 
-        forthword zeroscomma, 'zeros,'
-        ;; ( count -- )
-        ;; fill count bytes starting from here with zeros
-        ;; and advance here
-        dd here, read4, over, lit, 0, memset
-        dd here, addstore4
-        dd exit
-
         forthword create, 'create'
         ;; ( buff len -- )
         ;; start a word definition for word named(buff, len) at here
         ;; and advance here
         dd swap, over
-        dd latestword, comma                    
-        dd copycomma, lit, 16, swap, minus, zeroscomma
+        dd latestword, comma 
+        dd copycomma, ccomma
+        dd lit, 0, ccomma
         dd here, read4, latest, store4        
         dd lit, interpreter, comma                    
         dd exit
@@ -884,7 +874,7 @@ section .text
         ;; ( ch index )
         dd dup, tokenbuff, plus, swapd, store1, oneplus
         ;; ( index+1 )
-        dd dup, lit, 16, lessthanp, lit, 2, branchz
+        dd dup, lit, 256, lessthanp, lit, 2, branchz
         ;; ( index+1 )
         dd errlongtok, fail
         ;; ( index+1 )
@@ -951,7 +941,9 @@ section .text
 
         forthword prevword, 'prevword'
         ;; ( word -- prevword )
-        dd lit, 20, minus, read4
+        dd lit, 2, minus
+        dd dup, read1, lit, 4, plus, minus
+        dd read4
         dd exit
 
         forthword wordtoflags, 'word>flags'
@@ -966,8 +958,9 @@ section .text
 
         forthword wordtostr, 'word>str'
         ;; ( word -- buff len )
-        dd lit, 16, minus
-        dd dup, cstrlen
+        dd lit, 2, minus
+        dd dup, read1, swap, over
+        dd minus, swap
         dd exit
 
         forthword findword, 'findword'
