@@ -2,7 +2,7 @@
   /mod drop ;
 
 : mod
-  /mod nip ;  
+  /mod nip ;
 
 : lit,
   lit lit , , ;
@@ -37,7 +37,7 @@
 : unless
   branchz,
   ; immediate
-    
+
 : else
   branch, swap
   here @ branchoff!
@@ -209,7 +209,7 @@ var: n>s_ptr   1 cells alloc
 : . ( n -- )
   num>str write nl ;
 
-// Hide implementation specific words
+// hide implementation specific words
 
 \ lit, hide
 \ dup, hide
