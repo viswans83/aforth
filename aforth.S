@@ -134,18 +134,18 @@
 %endmacro
 
 ;;;
-;;; macro: stringconst asmname, 'wordname'
+;;; macro: stringconst asmname, 'wordname', flags
 ;;;
 ;;; this macro defines a forth word that when executed simply places
 ;;; on the stack (a) the address of the string buffer, (b) the string length
 ;;; 
-%macro stringconst 2
+%macro stringconst 2-3 0
 section .data
 str_data_%1:	db %2
 str_len_%1:     equ $-str_data_%1
 section .text
 	%defstr variable_name %1
-	primitive %1, variable_name
+	primitive %1, variable_name, %3
 	push str_data_%1
         push str_len_%1
 	next
@@ -158,13 +158,13 @@ section .text
 ;;; and defines a forth word that simply places this address on
 ;;; the stack
 ;;; 
-%macro variable 1
+%macro variable 1-2 0
 section .bss
 var_data_%1:	
 	resd 1
 section .text
 	%defstr variable_name %1
-	primitive %1, variable_name
+	primitive %1, variable_name, %2
 	push var_data_%1
 	next
 %endmacro	
@@ -576,6 +576,11 @@ boolnot_true:
         not eax
         push eax
         next
+
+        forthword bit, 'bit'
+        ;; ( value index -- ? )
+        dd bitand, boolnot, boolnot
+        dd exit
         
         
 ;;;
@@ -651,16 +656,7 @@ streqp_done:
 ;;;
         
 
-        primitive memset, 'memset'
-        ;; ( addr count byteval -- )
-        ;; store byteval in count bytes starting at addr
-        pop eax
-        pop ecx
-        pop edi
-        rep stosb
-        next
-
-	primitive read4, '@'
+        primitive read4, '@'
         ;; ( addr -- x )
 	pop eax
 	push dword [eax]
@@ -845,7 +841,7 @@ internal_var_tokbuff:
 
 section .text
         
-        primitive tokenbuff, 'tokenbuff'
+        primitive tokenbuff, 'tokenbuff', F_HIDDEN
         ;; ( -- addr )
         ;; places start address of the token buffer on stack
         push internal_var_tokbuff
@@ -869,7 +865,7 @@ section .text
         ;; ( buff len ch )
         dd drop, lit, -25, branch
 
-        stringconst errlongtok, {'err: token too long (limit 15)', 10}
+        stringconst errlongtok, {'err: token too long (limit 15)', 10}, F_HIDDEN
 
         forthword readtoken, 'readtoken'
         ;; ( ch? eof? -- buff len )
@@ -907,9 +903,9 @@ section .text
         pop eax
         jmp dword [eax]
 
-        stringconst errnotanum, 'err: not a number'
+        stringconst errnotanum, 'err: not a number', F_HIDDEN
         
-        forthword signandnumstr, 'signandnumstr'
+        forthword signandnumstr, 'signandnumstr', F_HIDDEN
         ;; ( buff len -- -ve? buff' len' )
         dd over, read1, lit, 45, equalp, lit, 14, branchnz
         dd dup, lit, 1, equalp, lit, 2, branchnz
@@ -921,7 +917,7 @@ section .text
         dd swap, lit, 2, pick, plus
         dd swap, exit
 
-        forthword strtoposint, 'strtoposint'
+        forthword strtoposint, 'strtoposint', F_HIDDEN
         ;; ( buff len -- +n )
         dd lit, 0, dup
         dd lit, 3, pick, over, plus, read1
@@ -936,7 +932,7 @@ section .text
         dd drop, rotr, drop2
         dd exit
 
-        forthword signed, 'signed'
+        forthword signed, 'signed', F_HIDDEN
         ;; ( -ve? +n -- +n/-n )
         dd swap, lit, 1, branchnz
         dd exit
@@ -954,14 +950,32 @@ section .text
         dd read4
         dd exit
 
-        forthword wordtoflags, 'word>flags'
+        forthword wordtoflags, 'word>flags', F_HIDDEN
         ;; ( word -- flags )
-        dd oneminus, read1, exit
+        dd oneminus, read1
+        dd exit
+
+        forthword setwordflags, 'setwordflags', F_HIDDEN
+        ;; ( flags word -- )
+        dd oneminus, store1
+        dd exit
 
         forthword immediatep, 'immediate?'
         ;; ( word -- ? )
-        dd wordtoflags, lit, 1, bitand
-        dd bitnot, lit, 1, bitand
+        dd wordtoflags, lit, F_IMMEDIATE
+        dd bit, boolnot
+        dd exit
+
+        forthword hiddenp, 'hidden?'
+        ;; ( word -- ? )
+        dd wordtoflags, lit, F_HIDDEN
+        dd bit, boolnot
+        dd exit
+
+        forthword hide, 'hide'
+        ;; ( word -- )
+        dd dup, wordtoflags, lit, F_HIDDEN
+        dd bitor, swap, setwordflags
         dd exit
 
         forthword wordtostr, 'word>str'
@@ -971,17 +985,20 @@ section .text
         dd minus, swap
         dd exit
 
-        forthword findword, 'findword'
+        forthword findword, 'findword', F_HIDDEN
         ;; ( buff len word -- word/0 )
         dd dup, lit, 3, branchnz
         dd nip, nip, exit
         dd dup, prevword
+        dd over, hiddenp
+        dd lit, 4, branchnz
+        dd nip, lit, -18, branch
         dd over, wordtostr
         dd lit, 5, pick, lit, 5, pick
         dd streqp
         dd lit, 4, branchnz
         dd drop, nip, nip, exit
-        dd nip, lit, -29, branch
+        dd nip, lit, -38, branch
 
         ;; points to the last defined word
         ;; i.e. the begining of the aforth dictionary
@@ -998,7 +1015,7 @@ section .text
         dd latestword, findword
         dd exit
 
-        forthword executeorcomma, 'executeorcomma'
+        forthword executeorcomma, 'executeorcomma', F_HIDDEN
         ;; ( ...a word -- ...b )
         ;; interpret mode: execute word
         ;; compile mode: compiles word into current definition
@@ -1009,7 +1026,7 @@ section .text
         dd execute, exit
         dd comma, exit
 
-        forthword numorcomma, 'numorcomma'
+        forthword numorcomma, 'numorcomma', F_HIDDEN
         ;; ( ...a n -- ...b )
         ;; interpret mode: does nothing
         ;; compile mode: compiles literal n into current definition
@@ -1018,7 +1035,7 @@ section .text
         dd exit
         dd lit, lit, comma, comma, exit
 
-        forthword repl, 'repl'
+        forthword repl, 'repl', F_HIDDEN
         ;; ( ...a -- ...b )
         dd scantoken, dup, lit, 1, branchnz
         dd quit

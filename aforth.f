@@ -1,14 +1,14 @@
-: lit,
-  lit lit , , ;
-
-: dup,
-  lit dup , ;
-
 : /
   /mod drop ;
 
 : mod
   /mod nip ;  
+
+: lit,
+  lit lit , , ;
+
+: dup,
+  lit dup , ;
 
 : branchz,
   0 lit,
@@ -123,14 +123,14 @@
   dup here @ swap -
   ;
 
-: string: ( -- )
+: str: ( -- )
   scantoken acceptstr 2swap
   create swap lit, lit,
   lit exit ,
   ; immediate
 
 // now we are able to create string constants like below:
-//   string: greeting "welcome to aforth!"
+//   str: greeting "welcome to aforth!"
 //   greeting write nl
 // this will output:
 //   welcome to aforth!
@@ -140,7 +140,7 @@
 
 : bytes ( n -- ) ;
 
-: allocate ( n -- )
+: alloc ( n -- )
   here +! ;
 
 : var: ( -- )
@@ -150,14 +150,17 @@
   ; immediate
 
 // now we can create variables at runtime like below:
-//   var: a 1 cells allocate
-//   var: b 15 bytes allocate
+//   var: a 1 cells alloc
+//   var: b 15 bytes alloc
 
-var: n>s_buff 15 bytes allocate
-var: n>s_ptr   1 cells allocate
+var: n>s_buff 15 bytes alloc
+var: n>s_ptr   1 cells alloc
 
 : 1-@ ( var -- )
   dup @ 1- swap ! ;
+
+: 1+@ ( var -- )
+  dup @ 1+ swap ! ;
 
 : num>str ( n -- buff len )
   dup if
@@ -194,11 +197,27 @@ var: n>s_ptr   1 cells allocate
 : words. ( -- )
   latestword
   dup until
-    dup word>str write spc
-    prevword dup
+    dup hidden? if
+      prevword
+    else
+      dup word>str write spc
+      prevword
+    end dup
   loop
   drop nl ;
 
 : . ( n -- )
   num>str write nl ;
 
+// Hide implementation specific words
+
+\ lit, hide
+\ dup, hide
+\ branchz, hide
+\ branchnz, hide
+\ branch, hide
+\ branchoff! hide
+\ key="? hide
+\ acceptstr hide
+\ n>s_buff hide
+\ n>s_ptr hide
