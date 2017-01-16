@@ -84,7 +84,7 @@ Print the multiplication table of a number upto 10:
   terms of other primitive forth words like `branchz` and `branch` that are
   defined in x86 assembly.
 - The word `:` or `COLON` is a forth word that creates other forth words. It has
-  a very simple definition, again written in forth
+  a very simple definition, again written in forth.
 
 ## Why I built this
 The [Factor][0] programming language was my first exposure to concatenative or
