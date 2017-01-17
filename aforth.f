@@ -87,6 +87,16 @@
 
 // now we gain the ability to insert comments in a forth program
 
+: */ ;
+
+: /*
+  scantoken
+  \ */ word>str
+  str= unless
+    recur
+  end
+  ; immediate
+
 : ) ;
 
 : (
