@@ -64,14 +64,17 @@ Print the multiplication table of a number upto 10:
 ## Did you know?
 - In FORTH, functions are called words. All words take their inputs from the
   stack and place their outputs on the same stack. Thus a word in forth is
-  defined as a list of other words that need to be called. e.g.
+  defined as a list of other words that need to be executed. e.g.
   `: double 2 * ;` and `: quadruple double double ;`.
-- The word `//` defines a comment, and is defined in forth.
-- `if`, `else`, `while`, `until` are all simply forth words. They are defined in
-  terms of other primitive forth words like `branchz` and `branch` that are
-  defined in x86 assembly.
-- The word `:` or `COLON` is a forth word that creates other forth words. It has
-  a very simple definition, again written in forth.
+- The word `//` defines a comment that extends until end of line. The word pair
+  `/*` and `*/` define a multi-line comment. Unlike most languages, they are
+  simply forth words like any other.
+- `if`, `else`, `while`, `until` are higher level control flow words, that are
+  defined in terms of other primitive forth words like `branch` and `branchz`
+  that in turn are forth primitives defined in x86 assembly.
+- The word `:` (COLON) is a forth word that is used to define new words at
+  runtime. It does this by compiling the addresses of other words into
+  consecutive memory addresses.
 
 ## Why I built this
 The [Factor][0] programming language was my first exposure to concatenative or
