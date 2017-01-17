@@ -48,16 +48,22 @@
   ; immediate
 
 : while
-  here @
-  branchnz,
+  here @ true
   ; immediate
 
 : until
-  here @
-  branchz,
+  here @ false
   ; immediate
 
-: loop
+: do
+  if
+    branchnz,
+  else
+    branchz,
+  end
+  ; immediate
+
+: done
   branch, rot branchoff!
   here @ branchoff!
   ; immediate
@@ -109,19 +115,17 @@
 
 : key="? ( -- ch ? )
   key dup
-  char: "
-  = ;
+  char: " = ;
 
 : acceptstr ( -- buff len )
-  here @
-  key="? until     // drop chars until first "
-    drop key="?
-  loop drop
-  key="? until     // append chars until next "
-    c, key="?
-  loop drop
-  dup here @ swap -
-  ;
+  until key="? do
+    drop
+  done drop                                          
+  here @ dup
+  until key="? do
+    c,
+  done drop
+  here @ swap - ;
 
 : str: ( -- )
   scantoken acceptstr 2swap
@@ -174,13 +178,12 @@ var: n>s_ptr   1 cells alloc
   else
     false
   end swap
-  dup until
+  until dup do
     10 /mod
     char: 0 +
     n>s_ptr 1-@
     n>s_ptr @ c!
-    dup
-  loop drop
+  done drop
   if
     n>s_ptr 1-@
     char: - n>s_ptr @ c!
@@ -196,14 +199,12 @@ var: n>s_ptr   1 cells alloc
 
 : words. ( -- )
   latestword
-  dup until
-    dup hidden? if
-      prevword
-    else
+  until dup do
+    dup hidden? unless
       dup word>str write spc
-      prevword
-    end dup
-  loop
+    end
+    prevword
+  done
   drop nl ;
 
 : . ( n -- )

@@ -37,30 +37,17 @@ Print the multiplication table of a number upto 10:
 
 : *table ( n -- )
   1                         // place index on stack
-  false until               // initialize loop boolean and begin until loop
+  until dup 10 > do
     over num>str write spc  // display n
     char: * emit spc        // display *
     dup num>str write spc   // display index
     char: = emit spc        // display =
     2dup * .                // multiply and display result
-    1+ dup 10 >             // increment index and setup loop boolean
-  loop
+    1+                      // increment index
+  done
   2drop ;
 
-// show table for number 11
-11 *table
-11 * 1 = 11
-11 * 2 = 22
-11 * 3 = 33
-11 * 4 = 44
-11 * 5 = 55
-11 * 6 = 66
-11 * 7 = 77
-11 * 8 = 88
-11 * 9 = 99
-11 * 10 = 110
-
-// show table for number 5
+// output multiplication table for number 5
 5 *table
 5 * 1 = 5
 5 * 2 = 10

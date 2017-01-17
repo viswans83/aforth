@@ -251,6 +251,14 @@ interpreter:
 	push eax
         next
 
+        primitive dupd, 'dupd'
+        ;; ( x y -- x x y )
+        pop ebx
+        mov eax, dword [esp]
+        push eax
+        push ebx
+        next
+
 	primitive drop, 'drop'
         ;; ( x -- )
 	pop eax
