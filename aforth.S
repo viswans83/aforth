@@ -912,44 +912,55 @@ section .text
         jmp dword [eax]
 
         stringconst errnotanum, 'err: not a number', F_HIDDEN
-        
-        forthword signandnumstr, 'signandnumstr', F_HIDDEN
-        ;; ( buff len -- -ve? buff' len' )
-        dd over, read1, lit, 45, equalp, lit, 14, branchnz
-        dd dup, lit, 1, equalp, lit, 2, branchnz
-        dd errnotanum, fail
-        dd lit, 1, lit, 2, branch
-        dd lit, 0
-        dd rotr
-        dd lit, 2, pick, minus
-        dd swap, lit, 2, pick, plus
-        dd swap, exit
 
-        forthword strtoposint, 'strtoposint', F_HIDDEN
-        ;; ( buff len -- +n )
-        dd lit, 0, dup
-        dd lit, 3, pick, over, plus, read1
-        dd dup, lit, 48, lessthanp, lit, 2, branchnz
-        dd errnotanum, fail
-        dd dup, lit, 57, greaterthanp, lit, 2, branchnz
-        dd errnotanum, fail
-        dd lit, 48, minus
-        dd rot, lit, 10, multiply, plus, swap, oneplus
-        dd lit, 2, pick, over, greaterthanp
-        dd lit, -42, branchz
-        dd drop, rotr, drop2
-        dd exit
-
-        forthword signed, 'signed', F_HIDDEN
-        ;; ( -ve? +n -- +n/-n )
-        dd swap, lit, 1, branchnz
-        dd exit
-        dd lit, -1, multiply, exit
+        primitive parsenum, 'parsenum', F_HIDDEN
+        ;; ( buff len -- num? valid? )
+        mov edx, 0              ; edx will hold sign, edx = 0 indicates positive
+        mov ebx, 0              ; ebx will hold +ve value
+        pop ecx                 ; len
+        pop edi
+        push esi
+        mov esi, edi            ; esi points to buff
+        pop edi                 ; edi holds next word address
+        mov eax, 0              ; eax will hold each digit as they are processed
+        lodsb
+        cmp al, 45              ; starts with - sign?
+        jnz parsenum_loop
+        mov edx, 1              ; edx = 1 indicates negative
+        dec ecx
+        jz parsenum_invalid     ; buff containd only a minus sign
+        lodsb
+parsenum_loop:
+        cmp al, 48              ; less than ascii 0?
+        jb parsenum_invalid
+        cmp al, 57
+        ja parsenum_invalid     ; greater than ascii 9?
+        sub al, 48
+        imul ebx, 10
+        add ebx, eax
+        dec ecx
+        jz parsenum_done_digits
+        lodsb
+        jmp parsenum_loop
+parsenum_done_digits:
+        cmp edx, 1              ; handle negative sign
+        jnz parsenum_done
+        imul ebx, -1
+parsenum_done:
+        mov esi, edi            ; restore next word address
+        push ebx                ; parsed number
+        push dword 0            ; valid = true
+        next
+parsenum_invalid:
+        push dword 0            ; dummy number
+        push dword 1            ; valid = false
+        next
 
         forthword strtonum, 'str>num'
-        ;; ( buff len -- n )
-        dd signandnumstr, strtoposint, signed
+        ;; ( buff len -- num )
+        dd parsenum, lit, 1, branchnz
         dd exit
+        dd errnotanum, fail
 
         forthword prevword, 'prevword'
         ;; ( word -- prevword )
