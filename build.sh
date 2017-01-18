@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [[ -z `which nasm` ]]; then
+    echo 'aforth build FAILED: nasm not installed'
+    exit 1
+fi
+
 case $1 in
     osx)
         NASMFLAGS="-fmacho32 -DOSX"
