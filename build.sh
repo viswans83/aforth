@@ -19,7 +19,11 @@ case $1 in
         exit 1
 esac
 
-rm -f aforth && nasm $NASMFLAGS -o aforth.o aforth.S && ld $LDFLAGS -o aforth aforth.o && echo 'aforth build OK' && exit 0
+rm -f aforth && \
+    nasm $NASMFLAGS -o aforth.o aforth.S && \
+    ld $LDFLAGS -o aforth aforth.o && \
+    echo 'aforth build OK' && \
+    exit 0
 
 echo 'aforth build FAILED'
 exit 1
