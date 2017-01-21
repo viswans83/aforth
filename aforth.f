@@ -123,58 +123,105 @@
 : neg? ( x -- ? )
   0 < ;
 
-: key="? ( -- ch ? )
-  key dup
-  char: " = ;
+: buff,c ( buff ch -- buff+1 )
+  over c! 1+ ;
 
-: acceptstr ( -- buff len )
-  until key="? do
-    drop
-  done drop                                          
-  here @ dup
-  until key="? do
-    c,
-  done drop
-  here @ swap - ;
+: accept-more? ( buff max ptr -- ? )
+  over -1 = if
+    true
+  else
+    rot - >
+  end ;
 
-: str: ( -- )
-  scantoken acceptstr 2swap
-  create swap lit, lit,
-  lit exit ,
-  ; immediate
+: escape? ( ch -- ? )
+  char: \ = ;
 
-// now we are able to create string constants like below:
-//   str: greeting "welcome to aforth!"
-//   greeting write nl
-// this will output:
-//   welcome to aforth!
+: finish-accept ( delim buff max ptr -- buff len )
+  nip over -
+  rot drop ;
+
+: accept ( delim buff max -- buff len )
+  over
+  while 3dup accept-more? do
+    key dup escape?
+    if
+      drop key drop 
+      key buff,c
+    else
+      ( delim buff max ptr ch )
+      dup 5 pick =
+      unless
+        buff,c
+      else
+        drop finish-accept
+        exit
+      end
+    end
+  done
+  finish-accept ;
+
+\ accept-more? hide
+\ escape? hide
+\ finish-accept hide
 
 : cells ( n -- )
   4 * ;
 
 : bytes ( n -- ) ;
 
+//
+// Creates a word whose definition looks like this in memory:
+// +------------------+------------------------>
+// | lit | xxx | exit | address xxx onwards --->
+// +------------------+------------------------>
+// 
+: var ( -- var-sizeof-addr )
+  scantoken create
+  here @ 3 cells + lit,
+  lit exit ,
+  ; immediate
+
 : alloc ( n -- )
   here +! ;
 
-: var: ( -- )
-  scantoken create
-  here @ 3 cells +  // space for lit, xxxxx, exit
-  lit, lit exit ,
+// now we can create variables at runtime like below:
+//   var a  1 cells alloc
+//   var b 15 bytes alloc
+
+: string ( -- )
+  scantoken
+  whitespace discard drop
+  here @ 100 accept
+  ( word wlen buff blen )
+  dup here +!
+  2swap create swap
+  lit, lit, lit exit ,
   ; immediate
 
-// now we can create variables at runtime like below:
-//   var: a 1 cells alloc
-//   var: b 15 bytes alloc
+// now we are able to create string constants like below:
+//   string greeting1 "welcome to aforth!"
+//   greeting1 write nl
+// this will output:
+//   welcome to aforth!
 
-var: n>s_buff 15 bytes alloc
-var: n>s_ptr   1 cells alloc
+: buffer ( -- )
+  scantoken create
+  here @ 5 cells + lit,
+  scantoken str>num dup lit,
+  lit exit , alloc
+  ; immediate
+
+: readln ( buff max -- buff len )
+  10 -rot accept ;
 
 : 1-@ ( var -- )
   dup @ 1- swap ! ;
 
 : 1+@ ( var -- )
   dup @ 1+ swap ! ;
+
+var n>s_buff 15 bytes alloc
+var n>s_ptr   1 cells alloc
 
 : num>str ( n -- buff len )
   dup if
@@ -228,7 +275,5 @@ var: n>s_ptr   1 cells alloc
 \ branchnz, hide
 \ branch, hide
 \ branchoff! hide
-\ key="? hide
-\ acceptstr hide
 \ n>s_buff hide
 \ n>s_ptr hide
