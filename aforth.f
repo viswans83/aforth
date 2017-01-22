@@ -276,19 +276,38 @@ var n>s_ptr   1 cells alloc
 : . ( n -- )
   num>str write. ;
 
-string ps_bot "---------"
-string ps_top "-- top --"
+string s_bot "---------"
+string s_top "-- top --"
 
 : s. ( -- )
-  ps_bot write.
+  s_bot write.
   psbase while ps over < do
     dup @ .
     1 cells -
   done drop
-  ps_top write. ;
+  s_top write. ;
 
-\ ps_bot hide
-\ ps_top hide
+//
+// word xx xx xx
+//            ^
+: rframe. ( rs -- )
+  latestword
+  until 2dup swap < do
+    prevword
+  done
+  word. drop ;
+
+: r. ( -- )
+  s_bot write.
+  rsbase 1 cells +     // skip over bootstrap
+  while rs over >= do
+    dup @ rframe.
+    1 cells +
+  done drop
+  s_top write. ;
+
+\ s_bot hide
+\ s_top hide
 
 // hide implementation specific words
 
