@@ -1118,8 +1118,8 @@ parsenum_invalid:
 ;;; main
 ;;;
 
-
-bootstrap:
+        
+        forthword bootstrap, 'bootstrap', F_HIDDEN
 	dd repl
 
 startsymbol:
@@ -1146,7 +1146,7 @@ startsymbol:
 
         ;; set up the first forth word that will be
         ;; interpreted
-        mov esi, bootstrap
+        mov esi, bootstrap + 4
 
         ;; jump to forth
         next

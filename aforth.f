@@ -299,7 +299,7 @@ string s_top "-- top --"
 
 : r. ( -- )
   s_bot write.
-  rsbase 1 cells +     // skip over bootstrap
+  rsbase
   while rs over >= do
     dup @ rframe.
     1 cells +
