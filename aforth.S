@@ -1106,7 +1106,7 @@ parsenum_invalid:
         forthword repl, 'repl', F_HIDDEN
         ;; ( ...a -- ...b )
         dd scantoken, dup, lit, 1, branchnz
-        dd quit
+        dd exit
         dd dup2, wordf
         dd dup, lit, 6, branchz
         dd nip, nip, executeorcomma, lit, 3, branch
@@ -1120,7 +1120,7 @@ parsenum_invalid:
 
         
         forthword bootstrap, 'bootstrap', F_HIDDEN
-	dd repl
+	dd repl, quit
 
 startsymbol:
         ;; set up dictionary pointer

@@ -280,6 +280,9 @@ string s_bot "---------"
 string s_top "-- top --"
 
 : s. ( -- )
+  psbase ps = if 
+    exit 
+  end
   s_bot write.
   psbase while ps over < do
     dup @ .
