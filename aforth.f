@@ -1,3 +1,9 @@
+: >=
+  < not ;
+
+: <=
+  > not ;
+
 : /
   /mod drop ;
 
@@ -251,6 +257,9 @@ var n>s_ptr   1 cells alloc
 : spc ( -- )
   32 emit ;
 
+: write. ( buff str -- )
+  write nl ;
+
 : word. ( word -- )
   word>str write nl ;
 
@@ -265,7 +274,21 @@ var n>s_ptr   1 cells alloc
   drop nl ;
 
 : . ( n -- )
-  num>str write nl ;
+  num>str write. ;
+
+string ps_bot "---------"
+string ps_top "-- top --"
+
+: s. ( -- )
+  ps_bot write.
+  psbase while ps over < do
+    dup @ .
+    1 cells -
+  done drop
+  ps_top write. ;
+
+\ ps_bot hide
+\ ps_top hide
 
 // hide implementation specific words
 

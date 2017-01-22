@@ -700,6 +700,55 @@ streqp_done:
         dd exit
 
 	
+;;;
+;;; words to work with the return stack
+;;;
+
+
+        primitive rsbase, 'rsbase'
+        ;; ( -- addr )
+        push return_stack_base
+        next
+
+        primitive peekrs, 'rs'
+        ;; ( -- addr )
+        push ebp
+        next
+
+        primitive pushrsp, '>rs'
+        ;; ( n -- )
+        pop eax
+        pushrs eax
+        next
+
+        primitive poprsp, 'rs>'
+        ;; ( -- n )
+        poprs eax
+        push eax
+        next
+
+
+;;;
+;;; words to work with the parameter stack
+;;;
+
+        
+section .bss
+parameter_stack_base:
+        resd 1
+section .text
+
+        primitive psbase, 'psbase'
+        mov eax, dword [parameter_stack_base]
+        push eax
+        next
+
+        primitive ps, 'ps'
+        mov eax, esp
+        push eax
+        next
+
+
 ;;; 
 ;;; i/o words
 ;;;
@@ -1087,8 +1136,13 @@ startsymbol:
         mov eax, 0
         mov dword [var_data_mode], eax
 
+        ;; store parameter stack base
+        mov ebx, esp
+        sub ebx, 4
+        mov dword [parameter_stack_base], ebx
+
         ;; set up return stack
-        mov ebp, return_stack_base	
+        mov ebp, return_stack_base - 4
 
         ;; set up the first forth word that will be
         ;; interpreted
@@ -1100,8 +1154,8 @@ startsymbol:
 	
 section .bss
 return_stack_base:
-        resd 1	 	; return stack with a capacity of 200 items
-        resd 200 	; (grows downwards, i.e. low memory -> high memory)
+        ;; return stack with a capacity of 200 items
+        ;; (grows downwards, i.e. low memory -> high memory)
+        resd 200
 alloc_base:	
 	resd 20000	; space for 20000 cells
-        
