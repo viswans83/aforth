@@ -922,7 +922,7 @@ section .text
         ;; ( buff len ch )
         dd drop, lit, -25, branch
 
-        stringconst errlongtok, {'err: token too long (limit 15)', 10}, F_HIDDEN
+        stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
 
         forthword readtoken, 'readtoken'
         ;; ( ch? eof? -- buff len )
@@ -931,6 +931,7 @@ section .text
         dd lit, 5, branchnz
         ;; ( ch? )
         dd drop, tokenbuff, lit, 0, exit
+        ;; ( ch? )
         dd lit, 0
         ;; ( ch index )
         dd dup, tokenbuff, plus, swapd, store1, oneplus
