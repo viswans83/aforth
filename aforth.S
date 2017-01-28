@@ -925,13 +925,10 @@ section .text
         stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
 
         forthword readtoken, 'readtoken'
-        ;; ( ch/0 eof? -- buff len )
+        ;; ( ch -- ws/0 buff len )
         ;; read a token (represented by buff and len) whose first character
-        ;; is ch. if end of stream was reached then len will be zero
-        dd lit, 2, branchnz
-        ;; ( 0 )
-        dd dup, exit
-        ;; ( ch )
+        ;; is ch. if end of stream was reached then len will be zero. return
+        ;; the token along with the last character read (or zero)
         dd lit, 0
         ;; ( ch index )
         dd dup, tokenbuff, plus, swapd, store1, oneplus
@@ -940,20 +937,27 @@ section .text
         ;; ( index+1 )
         dd errlongtok, fail
         ;; ( index+1 )
-        dd key, eof, lit, 4, branchnz
+        dd key, eof, lit, 3, branchnz
         ;; ( index+1 0 )
-        dd drop, tokenbuff, swap, exit
+        dd tokenbuff, rot, exit
         ;; ( index+1 ch/ws )
-        dd dup, whitespacep, lit, 4, branchnz
+        dd dup, whitespacep, lit, 3, branchnz
         ;; ( index+1 ws )
-        dd drop, tokenbuff, swap, exit
+        dd tokenbuff, rot, exit
         ;; ( index+1 ch )
-        dd swap, lit, -37, branch
+        dd swap, lit, -35, branch
 
         forthword scantoken, 'scantoken'
-        ;; ( -- buff len )
-        dd whitespace, discard, readtoken
-        dd exit
+        ;; ( -- ws/0 buff len )
+        dd whitespace, discard
+        ;; ( ch/0 eof )
+        dd lit, 2, branchnz
+        ;; ( 0 )
+        dd dup, exit
+        ;; ( ch )
+        dd readtoken
+        ;; ( ws/0 buff len )
+        dd rot, drop, exit
 
         primitive execute, 'execute'
         ;; ( ...a word -- ...b )
