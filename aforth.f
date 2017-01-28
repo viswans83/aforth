@@ -318,6 +318,30 @@ stringconst s_top "-- top --"
 \ s_bot hide
 \ s_top hide
 
+: kb ( n -- n )
+  1024 * ;
+
+stringconst bytes_str "bytes"
+stringconst kb_str "kb"
+stringconst free_str "free"
+
+: sq ( n -- )
+  dup * ;
+
+: mem. ( -- )
+  mem 1 kb >= if
+    mem 1 kb / num>str write
+    spc kb_str write
+  else
+    mem num>str write
+    spc bytes_str write
+  end
+  spc free_str write nl ;
+
+\ bytes_str hide
+\ kb_str hide
+\ free_str hide
+
 // hide implementation specific words
 
 \ lit, hide

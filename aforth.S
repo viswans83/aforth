@@ -699,6 +699,15 @@ streqp_done:
         dd swap, store4
         dd exit
 
+        forthword mem, 'mem'
+        ;; ( -- n )
+        ;; returns free memory available for runtime allocation
+        ;; in bytes
+        dd lit, alloc_end
+        dd here, read4
+        dd minus
+        dd exit
+
 	
 ;;;
 ;;; words to work with the return stack
@@ -1201,3 +1210,5 @@ return_stack_base:
         resd 200
 alloc_base:	
 	resd 20000	; space for 20000 cells
+alloc_end:
+        resd 1          ; unused
