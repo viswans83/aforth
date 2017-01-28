@@ -869,7 +869,7 @@ section .text
         ;; ( -- )
         ;; scan a string from stdin and create a word thus named
         ;; and switch to compile mode
-        dd quiet, read4, lit, 0, quiet, store4 
+        dd prompt, read4, lit, 1, prompt, store4 
         dd scantoken, create, compilemode
         dd exit
 
@@ -885,7 +885,7 @@ section .text
         ;; complete current word definition by compiling the
         ;; exit word and then switch back to interpret mode
         dd lit, exit, comma, interpretmode
-        dd quiet, store4
+        dd prompt, store4
         dd exit
         
         
@@ -1127,14 +1127,14 @@ parsenum_invalid:
         dd exit
         dd lit, lit, comma, comma, exit
 
-        variable quiet
+        variable prompt
 
         stringconst promptstring, 'ok ', F_HIDDEN
 
         forthword pshowprompt, '?showprompt', F_HIDDEN
         ;; ( -- )
         dd newline, read4
-        dd quiet, read4, boolnot
+        dd prompt, read4
         dd booland, lit, 6, branchnz
         dd promptstring, write
         dd lit, 1, newline, store4
@@ -1188,7 +1188,7 @@ startsymbol:
 
         ;; initialize repl state
         mov dword [var_data_newline], 1
-        mov dword [var_data_quiet]  , 0
+        mov dword [var_data_prompt] , 1
 
         ;; jump to forth
         next

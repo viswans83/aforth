@@ -334,4 +334,3 @@ welcome write nl
 
 \ welcome hide
 
-quiet disable
