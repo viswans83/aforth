@@ -776,7 +776,7 @@ section .text
         dd exit
 
 	primitive key, 'key'
-        ;; ( -- ch? )
+        ;; ( -- ch/0 )
         ;; reads a character from stdin
         ;; if end of stream is reached, eof is set to true and the
         ;; character placed on top of stack should be discarded
@@ -905,11 +905,11 @@ section .text
         next
                 
         forthword discard, 'discard'
-        ;; ( buff len -- ch? eof? )
+        ;; ( buff len -- ch/0 eof? )
         ;; read characters from stdin until a character not present
         ;; in the string(buff,len) is encountered. place this non-matching
         ;; character and eof flag on stack. if eof is true, then ch should
-        ;; be discarded
+        ;; be discarded (its value will be 0)
 	dd key, eof, lit, 4, branchnz
         ;; ( buff len ch? )
         dd nip, nip, eof, exit
@@ -925,13 +925,13 @@ section .text
         stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
 
         forthword readtoken, 'readtoken'
-        ;; ( ch? eof? -- buff len )
+        ;; ( ch/0 eof? -- buff len )
         ;; read a token (represented by buff and len) whose first character
         ;; is ch. if end of stream was reached then len will be zero
-        dd lit, 5, branchnz
-        ;; ( ch? )
-        dd drop, tokenbuff, lit, 0, exit
-        ;; ( ch? )
+        dd lit, 2, branchnz
+        ;; ( 0 )
+        dd dup, exit
+        ;; ( ch )
         dd lit, 0
         ;; ( ch index )
         dd dup, tokenbuff, plus, swapd, store1, oneplus
@@ -941,9 +941,9 @@ section .text
         dd errlongtok, fail
         ;; ( index+1 )
         dd key, eof, lit, 4, branchnz
-        ;; ( index+1 ch? )
+        ;; ( index+1 0 )
         dd drop, tokenbuff, swap, exit
-        ;; ( index+1 ch )
+        ;; ( index+1 ch/ws )
         dd dup, whitespacep, lit, 4, branchnz
         ;; ( index+1 ws )
         dd drop, tokenbuff, swap, exit
