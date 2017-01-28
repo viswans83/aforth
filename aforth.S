@@ -649,8 +649,8 @@ streqp_done:
         next
 
         ;; a string containing the characters:
-        ;;   space(32) carriage-return(13) newline(10) tab(9)
-        stringconst whitespace, {32, 13, 10, 9}
+        ;;   space(32) newline(10) tab(9)
+        stringconst whitespace, {32, 10, 9}
 
         forthword whitespacep, 'whitespace?'
         ;; ( ch -- ? )
@@ -869,6 +869,7 @@ section .text
         ;; ( -- )
         ;; scan a string from stdin and create a word thus named
         ;; and switch to compile mode
+        dd quiet, read4, lit, 0, quiet, store4 
         dd scantoken, create, compilemode
         dd exit
 
@@ -884,6 +885,7 @@ section .text
         ;; complete current word definition by compiling the
         ;; exit word and then switch back to interpret mode
         dd lit, exit, comma, interpretmode
+        dd quiet, store4
         dd exit
         
         
@@ -903,6 +905,21 @@ section .text
         ;; places start address of the token buffer on stack
         push internal_var_tokbuff
         next
+
+        ;; keep track of whether a newline was encountered from stdin
+        ;; so that a prompt can be shown when appopriate
+        variable newline, F_HIDDEN
+
+        forthword nlp, 'nl?'
+        ;; ( ch -- ? )
+        dd lit, 10, equalp
+        dd exit
+
+        forthword updatenewline, 'newline!', F_HIDDEN
+        ;; ( ch -- )
+        dd nlp, newline, read4, boolor
+        dd newline, store4
+        dd exit
                 
         forthword discard, 'discard'
         ;; ( buff len -- ch/0 eof? )
@@ -911,7 +928,7 @@ section .text
         ;; character and eof flag on stack. if eof is true, then ch should
         ;; be discarded (its value will be 0)
 	dd key, eof, lit, 4, branchnz
-        ;; ( buff len ch? )
+        ;; ( buff len 0 )
         dd nip, nip, eof, exit
         ;; ( buff len ch )
         dd dup3, charindex, lit, -1, equalp
@@ -924,7 +941,7 @@ section .text
 
         stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
 
-        forthword readtoken, 'readtoken'
+        forthword readtoken, 'readtoken', F_HIDDEN
         ;; ( ch -- ws/0 buff len )
         ;; read a token (represented by buff and len) whose first character
         ;; is ch. if end of stream was reached then len will be zero. return
@@ -948,16 +965,18 @@ section .text
         dd swap, lit, -35, branch
 
         forthword scantoken, 'scantoken'
-        ;; ( -- ws/0 buff len )
+        ;; ( -- buff len )
         dd whitespace, discard
         ;; ( ch/0 eof )
         dd lit, 2, branchnz
         ;; ( 0 )
         dd dup, exit
         ;; ( ch )
-        dd readtoken
-        ;; ( ws/0 buff len )
-        dd rot, drop, exit
+        dd readtoken, rot
+        ;; ( buff len ws/0 )
+        dd updatenewline
+        ;; ( buff len )
+        dd exit
 
         primitive execute, 'execute'
         ;; ( ...a word -- ...b )
@@ -1108,15 +1127,29 @@ parsenum_invalid:
         dd exit
         dd lit, lit, comma, comma, exit
 
+        variable quiet
+
+        stringconst promptstring, 'ok ', F_HIDDEN
+
+        forthword pshowprompt, '?showprompt', F_HIDDEN
+        ;; ( -- )
+        dd newline, read4
+        dd quiet, read4, boolnot
+        dd booland, lit, 6, branchnz
+        dd promptstring, write
+        dd lit, 1, newline, store4
+        dd exit
+
         forthword repl, 'repl', F_HIDDEN
         ;; ( ...a -- ...b )
+        dd pshowprompt
         dd scantoken, dup, lit, 1, branchnz
         dd exit
         dd dup2, wordf
         dd dup, lit, 6, branchz
         dd nip, nip, executeorcomma, lit, 3, branch
         dd drop, strtonum, numorcomma
-        dd lit, -24, branch
+        dd lit, -25, branch
         
         
 ;;;
@@ -1152,6 +1185,10 @@ startsymbol:
         ;; set up the first forth word that will be
         ;; interpreted
         mov esi, bootstrap + 4
+
+        ;; initialize repl state
+        mov dword [var_data_newline], 1
+        mov dword [var_data_quiet]  , 0
 
         ;; jump to forth
         next

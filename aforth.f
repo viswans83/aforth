@@ -1,3 +1,9 @@
+: enable
+  0 swap ! ;
+
+: disable
+  1 swap ! ;
+
 : >=
   < not ;
 
@@ -194,7 +200,7 @@
 //   var a  1 cells alloc
 //   var b 15 bytes alloc
 
-: string ( -- )
+: stringconst ( -- )
   scantoken
   whitespace discard drop
   here @ 100 accept
@@ -205,7 +211,7 @@
   ; immediate
 
 // now we are able to create string constants like below:
-//   string greeting1 "welcome to aforth!"
+//   stringconst greeting1 "welcome to aforth!"
 //   greeting1 write nl
 // this will output:
 //   welcome to aforth!
@@ -276,8 +282,8 @@ var n>s_ptr   1 cells alloc
 : . ( n -- )
   num>str write. ;
 
-string s_bot "---------"
-string s_top "-- top --"
+stringconst s_bot "---------"
+stringconst s_top "-- top --"
 
 : s. ( -- )
   psbase ps = if 
@@ -322,3 +328,10 @@ string s_top "-- top --"
 \ branchoff! hide
 \ n>s_buff hide
 \ n>s_ptr hide
+
+stringconst welcome "aforth v0.0.1 ready"
+welcome write nl
+
+\ welcome hide
+
+quiet disable
