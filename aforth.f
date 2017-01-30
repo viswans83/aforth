@@ -109,6 +109,9 @@
   end
   ; immediate
 
+/* now we gain the ability to place multi-
+line comments like this */
+
 : ) ;
 
 : (
@@ -176,8 +179,13 @@
 \ escape? hide
 \ finish-accept hide
 
+: cell ( n -- )
+  4 * ;
+
 : cells ( n -- )
   4 * ;
+
+: byte ( n -- ) ;
 
 : bytes ( n -- ) ;
 
@@ -211,10 +219,10 @@
   ; immediate
 
 // now we are able to create string constants like below:
-//   stringconst greeting1 "welcome to aforth!"
-//   greeting1 write nl
+//   stringconst greeting "Welcome to aforth!"
+//   greeting write nl
 // this will output:
-//   welcome to aforth!
+//   Welcome to aforth!
 
 : buffer ( -- )
   scantoken create

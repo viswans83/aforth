@@ -578,6 +578,14 @@ boolnot_true:
         push eax
         next
 
+        primitive bitxor, '^'
+        ;; ( x y -- x^y )
+        pop ebx
+        pop eax
+        xor eax, ebx
+        push eax
+        next
+
         primitive bitnot, 'invert'
         ;; ( x -- x' )
         pop eax
@@ -592,7 +600,7 @@ boolnot_true:
         
         
 ;;;
-;;; string manipulation words
+;;; words to work with strings
 ;;;
 
 
@@ -657,6 +665,83 @@ streqp_done:
         dd whitespace, rot, charindex
         dd lit, -1, notequalp
         dd exit
+
+        ;; a string containing the characters:
+        ;;   space(32) tab(9)
+        stringconst spaces, {32, 9}
+        
+        forthword spacesp, 'spaces?'
+        ;; ( ch -- ? )
+        dd spaces, rot, charindex
+        dd lit, -1, notequalp
+        dd exit
+
+        forthword spcp, 'spc?'
+        ;; ( ch -- ? )
+        dd lit, 32, equalp
+        dd exit
+
+        forthword nlp, 'nl?'
+        ;; ( ch -- ? )
+        dd lit, 10, equalp
+        dd exit
+
+        
+;;;
+;;; words to work with numbers
+;;;
+
+
+        stringconst errnotanum, 'err: not a number', F_HIDDEN
+
+        primitive parsenum, 'parsenum', F_HIDDEN
+        ;; ( buff len -- num? valid? )
+        mov edx, 0              ; edx will hold sign, edx = 0 indicates positive
+        mov ebx, 0              ; ebx will hold +ve value
+        pop ecx                 ; len
+        pop edi
+        push esi
+        mov esi, edi            ; esi points to buff
+        pop edi                 ; edi holds next word address
+        mov eax, 0              ; eax will hold each digit as they are processed
+        lodsb
+        cmp al, 45              ; starts with - sign?
+        jnz parsenum_loop
+        mov edx, 1              ; edx = 1 indicates negative
+        dec ecx
+        jz parsenum_invalid     ; buff containd only a minus sign
+        lodsb
+parsenum_loop:
+        cmp al, 48              ; less than ascii 0?
+        jb parsenum_invalid
+        cmp al, 57
+        ja parsenum_invalid     ; greater than ascii 9?
+        sub al, 48
+        imul ebx, 10
+        add ebx, eax
+        dec ecx
+        jz parsenum_done_digits
+        lodsb
+        jmp parsenum_loop
+parsenum_done_digits:
+        cmp edx, 1              ; handle negative sign
+        jnz parsenum_done
+        imul ebx, -1
+parsenum_done:
+        mov esi, edi            ; restore next word address
+        push ebx                ; parsed number
+        push dword 0            ; valid = true
+        next
+parsenum_invalid:
+        push dword 0            ; dummy number
+        push dword 1            ; valid = false
+        next
+
+        forthword strtonum, 'str>num'
+        ;; ( buff len -- num )
+        dd parsenum, lit, 1, branchnz
+        dd exit
+        dd errnotanum, fail
 
         
 ;;;
@@ -882,13 +967,6 @@ section .text
         dd scantoken, create, compilemode
         dd exit
 
-        forthword immediate, 'immediate'
-        ;; ( -- )
-        ;; set latest word as an immediate word
-        dd latestword, oneminus, dup 
-        dd read1, lit, 1, bitor, swap, store1
-        dd exit
-
         forthword semicolon, ';', F_IMMEDIATE
         ;; ( -- )
         ;; complete current word definition by compiling the
@@ -896,153 +974,18 @@ section .text
         dd lit, exit, comma, interpretmode
         dd prompt, store4
         dd exit
-        
-        
+
+
 ;;;
-;;; outer interpreter
-;;; 
+;;; words to work with words
+;;;
 
-        
-section .bss
-internal_var_tokbuff:
-        resb 256
-
-section .text
-        
-        primitive tokenbuff, 'tokenbuff', F_HIDDEN
-        ;; ( -- addr )
-        ;; places start address of the token buffer on stack
-        push internal_var_tokbuff
-        next
-
-        ;; keep track of whether a newline was encountered from stdin
-        ;; so that a prompt can be shown when appopriate
-        variable newline, F_HIDDEN
-
-        forthword nlp, 'nl?'
-        ;; ( ch -- ? )
-        dd lit, 10, equalp
-        dd exit
-
-        forthword updatenewline, 'newline!', F_HIDDEN
-        ;; ( ch -- )
-        dd nlp, newline, read4, boolor
-        dd newline, store4
-        dd exit
-                
-        forthword discard, 'discard'
-        ;; ( buff len -- ch/0 eof? )
-        ;; read characters from stdin until a character not present
-        ;; in the string(buff,len) is encountered. place this non-matching
-        ;; character and eof flag on stack. if eof is true, then ch should
-        ;; be discarded (its value will be 0)
-	dd key, eof, lit, 4, branchnz
-        ;; ( buff len 0 )
-        dd nip, nip, eof, exit
-        ;; ( buff len ch )
-        dd dup3, charindex, lit, -1, equalp
-        ;; ( buff len ch ? )
-        dd lit, 4, branchnz
-        ;; ( buff len ch )
-        dd nip, nip, eof, exit
-        ;; ( buff len ch )
-        dd drop, lit, -25, branch
-
-        stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
-
-        forthword readtoken, 'readtoken', F_HIDDEN
-        ;; ( ch -- ws/0 buff len )
-        ;; read a token (represented by buff and len) whose first character
-        ;; is ch. if end of stream was reached then len will be zero. return
-        ;; the token along with the last character read (or zero)
-        dd lit, 0
-        ;; ( ch index )
-        dd dup, tokenbuff, plus, swapd, store1, oneplus
-        ;; ( index+1 )
-        dd dup, lit, 256, lessthanp, lit, 2, branchz
-        ;; ( index+1 )
-        dd errlongtok, fail
-        ;; ( index+1 )
-        dd key, eof, lit, 3, branchnz
-        ;; ( index+1 0 )
-        dd tokenbuff, rot, exit
-        ;; ( index+1 ch/ws )
-        dd dup, whitespacep, lit, 3, branchnz
-        ;; ( index+1 ws )
-        dd tokenbuff, rot, exit
-        ;; ( index+1 ch )
-        dd swap, lit, -35, branch
-
-        forthword scantoken, 'scantoken'
-        ;; ( -- buff len )
-        dd whitespace, discard
-        ;; ( ch/0 eof )
-        dd lit, 2, branchnz
-        ;; ( 0 )
-        dd dup, exit
-        ;; ( ch )
-        dd readtoken, rot
-        ;; ( buff len ws/0 )
-        dd updatenewline
-        ;; ( buff len )
-        dd exit
 
         primitive execute, 'execute'
         ;; ( ...a word -- ...b )
         ;; execute word on top of stack
         pop eax
         jmp dword [eax]
-
-        stringconst errnotanum, 'err: not a number', F_HIDDEN
-
-        primitive parsenum, 'parsenum', F_HIDDEN
-        ;; ( buff len -- num? valid? )
-        mov edx, 0              ; edx will hold sign, edx = 0 indicates positive
-        mov ebx, 0              ; ebx will hold +ve value
-        pop ecx                 ; len
-        pop edi
-        push esi
-        mov esi, edi            ; esi points to buff
-        pop edi                 ; edi holds next word address
-        mov eax, 0              ; eax will hold each digit as they are processed
-        lodsb
-        cmp al, 45              ; starts with - sign?
-        jnz parsenum_loop
-        mov edx, 1              ; edx = 1 indicates negative
-        dec ecx
-        jz parsenum_invalid     ; buff containd only a minus sign
-        lodsb
-parsenum_loop:
-        cmp al, 48              ; less than ascii 0?
-        jb parsenum_invalid
-        cmp al, 57
-        ja parsenum_invalid     ; greater than ascii 9?
-        sub al, 48
-        imul ebx, 10
-        add ebx, eax
-        dec ecx
-        jz parsenum_done_digits
-        lodsb
-        jmp parsenum_loop
-parsenum_done_digits:
-        cmp edx, 1              ; handle negative sign
-        jnz parsenum_done
-        imul ebx, -1
-parsenum_done:
-        mov esi, edi            ; restore next word address
-        push ebx                ; parsed number
-        push dword 0            ; valid = true
-        next
-parsenum_invalid:
-        push dword 0            ; dummy number
-        push dword 1            ; valid = false
-        next
-
-        forthword strtonum, 'str>num'
-        ;; ( buff len -- num )
-        dd parsenum, lit, 1, branchnz
-        dd exit
-        dd errnotanum, fail
 
         forthword prevword, 'prevword'
         ;; ( word -- prevword )
@@ -1056,7 +999,7 @@ parsenum_invalid:
         dd oneminus, read1
         dd exit
 
-        forthword setwordflags, 'setwordflags', F_HIDDEN
+        forthword setwordflags, 'wordflags!', F_HIDDEN
         ;; ( flags word -- )
         dd oneminus, store1
         dd exit
@@ -1065,6 +1008,13 @@ parsenum_invalid:
         ;; ( word -- ? )
         dd wordtoflags, lit, F_IMMEDIATE
         dd bit, boolnot
+        dd exit
+
+        forthword immediate, 'immediate'
+        ;; ( -- )
+        ;; set latest word as an immediate word
+        dd latestword, oneminus, dup 
+        dd read1, lit, 1, bitor, swap, store1
         dd exit
 
         forthword hiddenp, 'hidden?'
@@ -1115,6 +1065,76 @@ parsenum_invalid:
         ;; ( buff len -- word/0 )
         dd latestword, findword
         dd exit
+        
+        
+;;;
+;;; outer interpreter
+;;; 
+
+        
+section .bss
+internal_var_tokbuff:
+        resb 256
+
+section .text
+        
+        primitive tokenbuff, 'tokenbuff', F_HIDDEN
+        ;; ( -- addr )
+        ;; places start address of the token buffer on stack
+        push internal_var_tokbuff
+        next
+
+        forthword discard, 'discard'
+        ;; ( buff len -- ch/0 eof? )
+        ;; read characters from stdin until a character not present
+        ;; in the string(buff,len) is encountered. place this non-matching
+        ;; character and eof flag on stack. if eof is true, then ch should
+        ;; be discarded (its value will be 0)
+	dd key, eof, lit, 4, branchnz
+        ;; ( buff len 0 )
+        dd nip, nip, eof, exit
+        ;; ( buff len ch )
+        dd dup3, charindex, lit, -1, equalp
+        ;; ( buff len ch ? )
+        dd lit, 4, branchnz
+        ;; ( buff len ch )
+        dd nip, nip, eof, exit
+        ;; ( buff len ch )
+        dd drop, lit, -25, branch
+
+        stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
+
+        forthword readtoken, 'readtoken', F_HIDDEN
+        ;; ( ch -- ws/0 buff len )
+        ;; read a token (represented by buff and len) whose first character
+        ;; is ch. if end of stream was reached then len will be zero. return
+        ;; the token along with the last character read (or zero)
+        dd lit, 0
+        ;; ( ch index )
+        dd dup, tokenbuff, plus, swapd, store1, oneplus
+        ;; ( index+1 )
+        dd dup, lit, 256, lessthanp, lit, 2, branchz
+        ;; ( index+1 )
+        dd errlongtok, fail
+        ;; ( index+1 )
+        dd key, eof, lit, 3, branchnz
+        ;; ( index+1 0 )
+        dd tokenbuff, rot, exit
+        ;; ( index+1 ch/ws )
+        dd dup, whitespacep, lit, 3, branchnz
+        ;; ( index+1 ws )
+        dd tokenbuff, rot, exit
+        ;; ( index+1 ch )
+        dd swap, lit, -35, branch
+
+        forthword scantoken, 'scantoken'
+        ;; ( -- buff len )
+        dd whitespace, discard
+        dd lit, 2, branchnz
+        dd   dup, exit
+        dd readtoken
+        dd rot, drop
+        dd exit
 
         forthword executeorcomma, 'executeorcomma', F_HIDDEN
         ;; ( ...a word -- ...b )
@@ -1122,9 +1142,9 @@ parsenum_invalid:
         ;; compile mode: compiles word into current definition
         dd dup, immediatep
         dd lit, 5, branchz
-        dd mode, read4
-        dd lit, 2, branchnz
-        dd execute, exit
+        dd   mode, read4
+        dd   lit, 2, branchnz
+        dd     execute, exit
         dd comma, exit
 
         forthword numorcomma, 'numorcomma', F_HIDDEN
@@ -1136,29 +1156,51 @@ parsenum_invalid:
         dd exit
         dd lit, lit, comma, comma, exit
 
+        ;; controls if the prompt should be displayed or not
+        ;; true(0) => show prompt
+        ;; false(1) => hide prompt
         variable prompt
 
         stringconst promptstring, 'ok ', F_HIDDEN
 
         forthword pshowprompt, '?showprompt', F_HIDDEN
         ;; ( -- )
-        dd newline, read4
         dd prompt, read4
-        dd booland, lit, 6, branchnz
-        dd promptstring, write
-        dd lit, 1, newline, store4
+        dd lit, 2, branchnz
+        dd   promptstring, write
         dd exit
 
-        forthword repl, 'repl', F_HIDDEN
-        ;; ( ...a -- ...b )
-        dd pshowprompt
-        dd scantoken, dup, lit, 1, branchnz
-        dd exit
+        forthword processtoken, 'processtoken', F_HIDDEN
+        ;; ( ..a buff len -- ..b )
         dd dup2, wordf
         dd dup, lit, 6, branchz
         dd nip, nip, executeorcomma, lit, 3, branch
         dd drop, strtonum, numorcomma
-        dd lit, -25, branch
+        dd exit
+
+        forthword replline, 'repl-line', F_HIDDEN
+        ;; ( ..a -- ..b eof )
+        dd spaces, discard
+        dd lit, 1, branchnz
+        dd   exit
+        dd dup, nlp, lit, 1, branchnz
+        dd   exit
+        dd readtoken, dup, lit, 0, equalp
+        dd lit, 3, branchnz
+        dd   nip, nip, exit
+        dd rot, nlp
+        dd lit, 4, branchnz
+        dd   processtoken
+        dd   lit, 1, exit
+        dd processtoken
+        dd lit, -36, branch
+
+        forthword repl, 'repl', F_HIDDEN
+        ;; ( ...a -- ...b )
+        dd pshowprompt, replline
+        dd lit, 1, branchnz
+        dd   exit
+        dd lit, -9, branch
         
         
 ;;;
@@ -1196,7 +1238,6 @@ startsymbol:
         mov esi, bootstrap + 4
 
         ;; initialize repl state
-        mov dword [var_data_newline], 1
         mov dword [var_data_prompt] , 1
 
         ;; jump to forth
