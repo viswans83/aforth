@@ -1,7 +1,7 @@
-: enable
+: on
   0 swap ! ;
 
-: disable
+: off
   1 swap ! ;
 
 : >=
@@ -366,3 +366,4 @@ welcome write nl
 
 \ welcome hide
 
+prompt on
