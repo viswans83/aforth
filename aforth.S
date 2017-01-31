@@ -380,55 +380,51 @@ lessthanp_true:
         next
 
 	primitive branch, 'branch'
-        ;; ( x -- )
-        ;; jump x words counting from the following word
-        ;; 0 branch => no operation
-        ;; 1 branch => skip the next word
-        ;; 2 branch => skip the next 2 words
-	pop eax
-	lea esi, [esi + 4*eax]
+        ;; ( addr -- )
+        ;; jump to forth addr (address of a cell in a given word)
+	pop esi
 	next
 
 	primitive branchz, 'branchz'
-        ;; ( x? y -- )
-        ;; jump y words counting from the following word if
-        ;; x is zero
-	pop eax			; offset
+        ;; ( ? addr -- )
+        ;; jump to forth addr if condition is zero
+	pop eax			; addr
 	pop ebx			; value
 	cmp ebx, 0
 	jz branchz_jump
 	next
 branchz_jump:
-	lea esi, [esi + 4*eax]
+	mov esi, eax
 	next
 
         primitive branchnz, 'branchnz'
-        ;; ( x? y -- )
-        ;; jump y words counting from the following word if
-        ;; x is not zero
-	pop eax			; offset
+        ;; ( ? addr -- )
+        ;; jump to forth addr if condition is non-zero
+	pop eax			; addr
 	pop ebx			; value
 	cmp ebx, 0
 	jnz branchz_jump
 	next
 branchnz_jump:
-	lea esi, [esi + 4*eax]
+	mov esi, eax
 	next
 
         forthword choose, '?'
         ;; ( x y ? -- x/y )
         ;; choose x if top of stack is true (zero)
         ;; choose y if top of stack is false (non-zero)
-        dd lit, 2, branchnz
+        dd lit, choose_false, branchnz
         dd drop, exit
+choose_false:     
         dd nip, exit
 
         forthword choose2, '2?'
         ;; ( x1 y1 x2 y2 ? -- x1/x2 y1/y2 )
         ;; choose x1 y1 if top of stack is true (zero)
         ;; choose x2 y2 if top of stack is false (non-zero)
-        dd lit, 2, branchnz
+        dd lit, choose2_false, branchnz
         dd drop2, exit
+choose2_false:    
         dd rot, drop
         dd rot, drop
         dd exit
@@ -739,8 +735,9 @@ parsenum_invalid:
 
         forthword strtonum, 'str>num'
         ;; ( buff len -- num )
-        dd parsenum, lit, 1, branchnz
+        dd parsenum, lit, strtonum_invalid, branchnz
         dd exit
+strtonum_invalid: 
         dd errnotanum, fail
 
         
@@ -1038,18 +1035,22 @@ section .text
 
         forthword findword, 'findword', F_HIDDEN
         ;; ( buff len word -- word/0 )
-        dd dup, lit, 3, branchnz
+findword_loop: 
+        dd dup, lit, findword_not_last, branchnz
         dd nip, nip, exit
+findword_not_last:      
         dd dup, prevword
         dd over, hiddenp
-        dd lit, 4, branchnz
-        dd nip, lit, -18, branch
+        dd lit, findword_not_hidden, branchnz
+        dd nip, lit, findword_loop, branch
+findword_not_hidden:    
         dd over, wordtostr
         dd lit, 5, pick, lit, 5, pick
         dd streqp
-        dd lit, 4, branchnz
+        dd lit, findword_not_same, branchnz
         dd drop, nip, nip, exit
-        dd nip, lit, -38, branch
+findword_not_same:      
+        dd nip, lit, findword_loop, branch
 
         ;; points to the last defined word
         ;; i.e. the begining of the aforth dictionary
@@ -1090,17 +1091,20 @@ section .text
         ;; in the string(buff,len) is encountered. place this non-matching
         ;; character and eof flag on stack. if eof is true, then ch should
         ;; be discarded (its value will be 0)
-	dd key, eof, lit, 4, branchnz
+discard_loop:  
+	dd key, eof, lit, discard_not_eof, branchnz
         ;; ( buff len 0 )
         dd nip, nip, eof, exit
         ;; ( buff len ch )
+discard_not_eof:        
         dd dup3, charindex, lit, -1, equalp
         ;; ( buff len ch ? )
-        dd lit, 4, branchnz
+        dd lit, discard_no_match, branchnz
         ;; ( buff len ch )
         dd nip, nip, eof, exit
         ;; ( buff len ch )
-        dd drop, lit, -25, branch
+discard_no_match:       
+        dd drop, lit, discard_loop, branch
 
         stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
 
@@ -1111,27 +1115,32 @@ section .text
         ;; the token along with the last character read (or zero)
         dd lit, 0
         ;; ( ch index )
+readtoken_loop:
         dd dup, tokenbuff, plus, swapd, store1, oneplus
         ;; ( index+1 )
-        dd dup, lit, 256, lessthanp, lit, 2, branchz
+        dd dup, lit, 256, lessthanp, lit, readtoken_length_ok, branchz
         ;; ( index+1 )
         dd errlongtok, fail
         ;; ( index+1 )
-        dd key, eof, lit, 3, branchnz
+readtoken_length_ok:    
+        dd key, eof, lit, readtoken_not_eof, branchnz
         ;; ( index+1 0 )
         dd tokenbuff, rot, exit
         ;; ( index+1 ch/ws )
-        dd dup, whitespacep, lit, 3, branchnz
+readtoken_not_eof:      
+        dd dup, whitespacep, lit, readtoken_not_ws, branchnz
         ;; ( index+1 ws )
         dd tokenbuff, rot, exit
         ;; ( index+1 ch )
-        dd swap, lit, -35, branch
+readtoken_not_ws:       
+        dd swap, lit, readtoken_loop, branch
 
         forthword scantoken, 'scantoken'
         ;; ( -- buff len )
         dd whitespace, discard
-        dd lit, 2, branchnz
-        dd   dup, exit
+        dd lit, scantoken_not_eof, branchnz
+        dd dup, exit
+scantoken_not_eof:     
         dd readtoken
         dd rot, drop
         dd exit
@@ -1141,10 +1150,12 @@ section .text
         ;; interpret mode: execute word
         ;; compile mode: compiles word into current definition
         dd dup, immediatep
-        dd lit, 5, branchz
-        dd   mode, read4
-        dd   lit, 2, branchnz
-        dd     execute, exit
+        dd lit, executeorcomma_execute, branchz
+        dd mode, read4
+        dd lit, executeorcomma_compile, branchnz
+executeorcomma_execute:       
+        dd execute, exit
+executeorcomma_compile:   
         dd comma, exit
 
         forthword numorcomma, 'numorcomma', F_HIDDEN
@@ -1152,8 +1163,9 @@ section .text
         ;; interpret mode: does nothing
         ;; compile mode: compiles literal n into current definition
         dd mode, read4
-        dd lit, 1, branchnz
+        dd lit, numorcomma_compile, branchnz
         dd exit
+numorcomma_compile:        
         dd lit, lit, comma, comma, exit
 
         ;; controls if the prompt should be displayed or not
@@ -1166,41 +1178,49 @@ section .text
         forthword pshowprompt, '?showprompt', F_HIDDEN
         ;; ( -- )
         dd prompt, read4
-        dd lit, 2, branchnz
-        dd   promptstring, write
+        dd lit, pshowprompt_no_prompt, branchnz
+        dd promptstring, write
+pshowprompt_no_prompt:  
         dd exit
 
         forthword processtoken, 'processtoken', F_HIDDEN
         ;; ( ..a buff len -- ..b )
         dd dup2, wordf
-        dd dup, lit, 6, branchz
-        dd nip, nip, executeorcomma, lit, 3, branch
+        dd dup, lit, processtoken_not_word, branchz
+        dd nip, nip, executeorcomma, lit, processtoken_done, branch
+processtoken_not_word:  
         dd drop, strtonum, numorcomma
+processtoken_done:      
         dd exit
 
         forthword replline, 'repl-line', F_HIDDEN
         ;; ( ..a -- ..b eof )
+replline_loop: 
         dd spaces, discard
-        dd lit, 1, branchnz
-        dd   exit
-        dd dup, nlp, lit, 1, branchnz
-        dd   exit
+        dd lit, replline_not_eof, branchnz
+        dd exit
+replline_not_eof:       
+        dd dup, nlp, lit, replline_not_nl, branchnz
+        dd exit
+replline_not_nl:        
         dd readtoken, dup, lit, 0, equalp
-        dd lit, 3, branchnz
-        dd   nip, nip, exit
+        dd lit, replline_token_not_empty, branchnz
+        dd nip, nip, exit
+replline_token_not_empty:       
         dd rot, nlp
-        dd lit, 4, branchnz
-        dd   processtoken
-        dd   lit, 1, exit
+        dd lit, replline_no_nl_after_token, branchnz
         dd processtoken
-        dd lit, -36, branch
+        dd lit, 1, exit
+replline_no_nl_after_token:     
+        dd processtoken
+        dd lit, replline_loop, branch
 
         forthword repl, 'repl', F_HIDDEN
         ;; ( ...a -- ...b )
+repl_loop:      
         dd pshowprompt, replline
-        dd lit, 1, branchnz
-        dd   exit
-        dd lit, -9, branch
+        dd lit, repl_loop, branchnz
+        dd exit
         
         
 ;;;

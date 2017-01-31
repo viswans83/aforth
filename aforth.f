@@ -1,21 +1,3 @@
-: on
-  0 swap ! ;
-
-: off
-  1 swap ! ;
-
-: >=
-  < not ;
-
-: <=
-  > not ;
-
-: /
-  /mod drop ;
-
-: mod
-  /mod nip ;
-
 : lit,
   lit lit , , ;
 
@@ -38,8 +20,6 @@
   here @ 8 - ;
 
 : branchoff!
-  over
-  - 4 / 2 -
   swap ! ;
 
 : if
@@ -97,7 +77,9 @@
   unless recur end
   ; immediate
 
+// -------------------------------------------------------------
 // now we gain the ability to insert comments in a forth program
+// -------------------------------------------------------------
 
 : */ ;
 
@@ -109,8 +91,9 @@
   end
   ; immediate
 
-/* now we gain the ability to place multi-
-line comments like this */
+/* --------------------------------------------------------------
+   now we gain the ability to place multi-line comments like this
+   -------------------------------------------------------------- */
 
 : ) ;
 
@@ -122,8 +105,68 @@ line comments like this */
   end
   ; immediate
 
-// ( x y -- z ) are used to place a stack comment
-// to indicate the input and output stacks of a word
+// stack effect signatures ( x y -- z ) are like function signatures
+// and are used indicate the input and output stack effects of a word
+
+// 
+// general utility words
+// 
+
+: on ( var -- )
+  true swap ! ;
+
+: off ( var -- )
+  false swap ! ;
+
+: >= ( n1 n2 -- ? )
+  < not ;
+
+: <= ( n1 n2 -- ? )
+  > not ;
+
+: / ( n1 n2 -- quot )
+  /mod drop ;
+
+: mod ( n1 n2 -- rem )
+  /mod nip ;
+
+: neg ( x -- -x )
+  0 swap - ;
+
+: neg? ( x -- ? )
+  0 < ;
+
+: 1+@ ( var -- ) // increment variable
+  dup @ 1+
+  swap ! ;
+
+: 1-@ ( var -- ) // decrement variable
+  dup @ 1-
+  swap ! ;
+
+//
+// utility words related to memory sizing
+//
+
+: cell ( n -- )
+  4 * ;
+
+: cells ( n -- )
+  4 * ;
+
+: byte ( n -- ) ;
+
+: bytes ( n -- ) ;
+
+: kb ( n -- n )
+  1024 * ;
+
+//
+// character literal support
+//
+// usage:
+//   char: a emit char: b emit char: c emit
+//
 
 : char:
   scantoken drop c@
@@ -132,14 +175,9 @@ line comments like this */
   end
   ; immediate
 
-: neg ( x -- -x )
-  0 swap - ;
-
-: neg? ( x -- ? )
-  0 < ;
-
-: buff,c ( buff ch -- buff+1 )
-  over c! 1+ ;
+//
+// accept character strings from stdin
+//
 
 : accept-more? ( buff max ptr -- ? )
   over -1 = if
@@ -151,6 +189,9 @@ line comments like this */
 : escape? ( ch -- ? )
   char: \ = ;
 
+: buff,c ( buff ch -- buff+1 )
+  over c! 1+ ;
+  
 : finish-accept ( delim buff max ptr -- buff len )
   nip over -
   rot drop ;
@@ -177,24 +218,16 @@ line comments like this */
 
 \ accept-more? hide
 \ escape? hide
+\ buff,c hide
 \ finish-accept hide
 
-: cell ( n -- )
-  4 * ;
-
-: cells ( n -- )
-  4 * ;
-
-: byte ( n -- ) ;
-
-: bytes ( n -- ) ;
-
 //
-// Creates a word whose definition looks like this in memory:
-// +------------------+------------------------>
-// | lit | xxx | exit | address xxx onwards --->
-// +------------------+------------------------>
-// 
+// support runtime variables
+//
+// usage:
+//   var a 1 cell alloc
+//
+
 : var ( -- var-sizeof-addr )
   scantoken create
   here @ 3 cells + lit,
@@ -204,9 +237,12 @@ line comments like this */
 : alloc ( n -- )
   here +! ;
 
-// now we can create variables at runtime like below:
-//   var a  1 cells alloc
-//   var b 15 bytes alloc
+//
+// support runtime string constants
+//
+// usage:
+//   stringconst abcd "abcd"
+//
 
 : stringconst ( -- )
   scantoken
@@ -218,11 +254,13 @@ line comments like this */
   lit, lit, lit exit ,
   ; immediate
 
-// now we are able to create string constants like below:
-//   stringconst greeting "Welcome to aforth!"
-//   greeting write nl
-// this will output:
-//   Welcome to aforth!
+//
+// support allocating buffers to hold runtime input
+//
+// usage:
+//   buffer userinput 100
+//   userinput readln
+//
 
 : buffer ( -- )
   scantoken create
@@ -234,11 +272,9 @@ line comments like this */
 : readln ( buff max -- buff len )
   10 -rot accept ;
 
-: 1-@ ( var -- )
-  dup @ 1- swap ! ;
-
-: 1+@ ( var -- )
-  dup @ 1+ swap ! ;
+//
+// words to convert numbers to strings
+//
 
 var n>s_buff 15 bytes alloc
 var n>s_ptr   1 cells alloc
@@ -268,6 +304,13 @@ var n>s_ptr   1 cells alloc
   n>s_ptr @
   n>s_buff 15 + n>s_ptr @ - ;
 
+\ n>s_buff hide
+\ n>s_ptr hide
+
+//
+// words to output stuff
+//
+
 : spc ( -- )
   32 emit ;
 
@@ -290,6 +333,10 @@ var n>s_ptr   1 cells alloc
 : . ( n -- )
   num>str write. ;
 
+//
+// words to inspect the parameter & return stacks
+//
+
 stringconst s_bot "---------"
 stringconst s_top "-- top --"
 
@@ -304,9 +351,6 @@ stringconst s_top "-- top --"
   done drop
   s_top write. ;
 
-//
-// word xx xx xx
-//            ^
 : rframe. ( rs -- )
   latestword
   until 2dup swap < do
@@ -326,15 +370,13 @@ stringconst s_top "-- top --"
 \ s_bot hide
 \ s_top hide
 
-: kb ( n -- n )
-  1024 * ;
+//
+// words to inspect free memory
+//
 
 stringconst bytes_str "bytes"
 stringconst kb_str "kb"
 stringconst free_str "free"
-
-: sq ( n -- )
-  dup * ;
 
 : mem. ( -- )
   mem 1 kb >= if
@@ -350,7 +392,9 @@ stringconst free_str "free"
 \ kb_str hide
 \ free_str hide
 
-// hide implementation specific words
+//
+// hide internal words
+//
 
 \ lit, hide
 \ dup, hide
@@ -358,11 +402,9 @@ stringconst free_str "free"
 \ branchnz, hide
 \ branch, hide
 \ branchoff! hide
-\ n>s_buff hide
-\ n>s_ptr hide
 
 stringconst welcome "aforth v0.0.1 ready"
-welcome write nl
+welcome write.
 
 \ welcome hide
 
