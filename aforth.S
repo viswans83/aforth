@@ -169,6 +169,9 @@ section .text
 	next
 %endmacro	
 
+%define branch(label) lit, label, branch
+%define branchz(label) lit, label, branchz
+%define branchnz(label) lit, label, branchnz
         
 global startsymbol
 
@@ -413,7 +416,7 @@ branchnz_jump:
         ;; ( x y ? -- x/y )
         ;; choose x if top of stack is true (zero)
         ;; choose y if top of stack is false (non-zero)
-        dd lit, choose_false, branchnz
+        dd branchnz(choose_false)
         dd drop, exit
 choose_false:     
         dd nip, exit
@@ -422,7 +425,7 @@ choose_false:
         ;; ( x1 y1 x2 y2 ? -- x1/x2 y1/y2 )
         ;; choose x1 y1 if top of stack is true (zero)
         ;; choose x2 y2 if top of stack is false (non-zero)
-        dd lit, choose2_false, branchnz
+        dd branchnz(choose2_false)
         dd drop2, exit
 choose2_false:    
         dd rot, drop
@@ -735,7 +738,7 @@ parsenum_invalid:
 
         forthword strtonum, 'str>num'
         ;; ( buff len -- num )
-        dd parsenum, lit, strtonum_invalid, branchnz
+        dd parsenum, branchnz(strtonum_invalid)
         dd exit
 strtonum_invalid: 
         dd errnotanum, fail
@@ -1036,21 +1039,21 @@ section .text
         forthword findword, 'findword', F_HIDDEN
         ;; ( buff len word -- word/0 )
 findword_loop: 
-        dd dup, lit, findword_not_last, branchnz
+        dd dup, branchnz(findword_not_last)
         dd nip, nip, exit
 findword_not_last:      
         dd dup, prevword
         dd over, hiddenp
-        dd lit, findword_not_hidden, branchnz
-        dd nip, lit, findword_loop, branch
+        dd branchnz(findword_not_hidden)
+        dd nip, branch(findword_loop)
 findword_not_hidden:    
         dd over, wordtostr
         dd lit, 5, pick, lit, 5, pick
         dd streqp
-        dd lit, findword_not_same, branchnz
+        dd branchnz(findword_not_same)
         dd drop, nip, nip, exit
 findword_not_same:      
-        dd nip, lit, findword_loop, branch
+        dd nip, branch(findword_loop)
 
         ;; points to the last defined word
         ;; i.e. the begining of the aforth dictionary
@@ -1092,19 +1095,19 @@ section .text
         ;; character and eof flag on stack. if eof is true, then ch should
         ;; be discarded (its value will be 0)
 discard_loop:  
-	dd key, eof, lit, discard_not_eof, branchnz
+	dd key, eof, branchnz(discard_not_eof)
         ;; ( buff len 0 )
         dd nip, nip, eof, exit
         ;; ( buff len ch )
 discard_not_eof:        
         dd dup3, charindex, lit, -1, equalp
         ;; ( buff len ch ? )
-        dd lit, discard_no_match, branchnz
+        dd branchnz(discard_no_match)
         ;; ( buff len ch )
         dd nip, nip, eof, exit
         ;; ( buff len ch )
 discard_no_match:       
-        dd drop, lit, discard_loop, branch
+        dd drop, branch(discard_loop)
 
         stringconst errlongtok, {'err: token too long (limit 256)', 10}, F_HIDDEN
 
@@ -1118,27 +1121,27 @@ discard_no_match:
 readtoken_loop:
         dd dup, tokenbuff, plus, swapd, store1, oneplus
         ;; ( index+1 )
-        dd dup, lit, 256, lessthanp, lit, readtoken_length_ok, branchz
+        dd dup, lit, 256, lessthanp, branchz(readtoken_length_ok)
         ;; ( index+1 )
         dd errlongtok, fail
         ;; ( index+1 )
 readtoken_length_ok:    
-        dd key, eof, lit, readtoken_not_eof, branchnz
+        dd key, eof, branchnz(readtoken_not_eof)
         ;; ( index+1 0 )
         dd tokenbuff, rot, exit
         ;; ( index+1 ch/ws )
 readtoken_not_eof:      
-        dd dup, whitespacep, lit, readtoken_not_ws, branchnz
+        dd dup, whitespacep, branchnz(readtoken_not_ws)
         ;; ( index+1 ws )
         dd tokenbuff, rot, exit
         ;; ( index+1 ch )
 readtoken_not_ws:       
-        dd swap, lit, readtoken_loop, branch
+        dd swap, branch(readtoken_loop)
 
         forthword scantoken, 'scantoken'
         ;; ( -- buff len )
         dd whitespace, discard
-        dd lit, scantoken_not_eof, branchnz
+        dd branchnz(scantoken_not_eof)
         dd dup, exit
 scantoken_not_eof:     
         dd readtoken
@@ -1150,9 +1153,9 @@ scantoken_not_eof:
         ;; interpret mode: execute word
         ;; compile mode: compiles word into current definition
         dd dup, immediatep
-        dd lit, executeorcomma_execute, branchz
+        dd branchz(executeorcomma_execute)
         dd mode, read4
-        dd lit, executeorcomma_compile, branchnz
+        dd branchnz(executeorcomma_compile)
 executeorcomma_execute:       
         dd execute, exit
 executeorcomma_compile:   
@@ -1163,7 +1166,7 @@ executeorcomma_compile:
         ;; interpret mode: does nothing
         ;; compile mode: compiles literal n into current definition
         dd mode, read4
-        dd lit, numorcomma_compile, branchnz
+        dd branchnz(numorcomma_compile)
         dd exit
 numorcomma_compile:        
         dd lit, lit, comma, comma, exit
@@ -1178,7 +1181,7 @@ numorcomma_compile:
         forthword pshowprompt, '?showprompt', F_HIDDEN
         ;; ( -- )
         dd prompt, read4
-        dd lit, pshowprompt_no_prompt, branchnz
+        dd branchnz(pshowprompt_no_prompt)
         dd promptstring, write
 pshowprompt_no_prompt:  
         dd exit
@@ -1186,8 +1189,8 @@ pshowprompt_no_prompt:
         forthword processtoken, 'processtoken', F_HIDDEN
         ;; ( ..a buff len -- ..b )
         dd dup2, wordf
-        dd dup, lit, processtoken_not_word, branchz
-        dd nip, nip, executeorcomma, lit, processtoken_done, branch
+        dd dup, branchz(processtoken_not_word)
+        dd nip, nip, executeorcomma, branch(processtoken_done)
 processtoken_not_word:  
         dd drop, strtonum, numorcomma
 processtoken_done:      
@@ -1197,29 +1200,29 @@ processtoken_done:
         ;; ( ..a -- ..b eof )
 replline_loop: 
         dd spaces, discard
-        dd lit, replline_not_eof, branchnz
+        dd branchnz(replline_not_eof)
         dd exit
 replline_not_eof:       
-        dd dup, nlp, lit, replline_not_nl, branchnz
+        dd dup, nlp, branchnz(replline_not_nl)
         dd exit
 replline_not_nl:        
         dd readtoken, dup, lit, 0, equalp
-        dd lit, replline_token_not_empty, branchnz
+        dd branchnz(replline_token_not_empty)
         dd nip, nip, exit
 replline_token_not_empty:       
         dd rot, nlp
-        dd lit, replline_no_nl_after_token, branchnz
+        dd branchnz(replline_no_nl_after_token)
         dd processtoken
         dd lit, 1, exit
 replline_no_nl_after_token:     
         dd processtoken
-        dd lit, replline_loop, branch
+        dd branch(replline_loop)
 
         forthword repl, 'repl', F_HIDDEN
         ;; ( ...a -- ...b )
 repl_loop:      
         dd pshowprompt, replline
-        dd lit, repl_loop, branchnz
+        dd branchnz(repl_loop)
         dd exit
         
         
