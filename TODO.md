@@ -1,6 +1,6 @@
 # TODO
 - ~~Redo branches to use jump to memory instead of jump to offset~~
-- Macro to make `lit, xxx, branchz` more readable in asm code
+- ~~Macro to make `lit, xxx, branchz` more readable in asm code~~
 - ~~Restructure dictionary to allow long word names~~
 - Rewrite some forth words in aforth.S to assembly where the forth
   implementation is more complex
