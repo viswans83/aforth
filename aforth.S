@@ -23,14 +23,14 @@
 ;;; 2) pass params in the order: ebx, ecx, edx
 ;;; 3) supports syscalls having upto 3 parameter 
 %macro systemcall 0
-%ifdef OSX
+%ifndef linux
         push edx
         push ecx
         push ebx
         push eax
 %endif
         int 0x80
-%ifdef OSX
+%ifndef linux
         add esp, 16
 %endif
 %endmacro

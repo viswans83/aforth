@@ -2,7 +2,7 @@
 A simplistic FORTH bootstrapped from x86 assembly language
 
 ## Compile
-    ./build.sh [linux|osx]
+    ./build.sh [linux|bsd|osx]
 
 ## Run
     cat aforth.f - | ./aforth

@@ -10,12 +10,16 @@ case $1 in
         NASMFLAGS="-fmacho32 -DOSX"
         LDFFAGS=""
         ;;
+    bsd)
+	NASMFLAGS="-felf32 -DBSD"
+	LDFLAGS="-m elf_i386_fbsd"
+	;; 
     linux)
-        NASMFLAGS="-felf32"
+        NASMFLAGS="-felf32 -Dlinux"
         LDFLAGS="-m elf_i386"
         ;;
     *)
-        echo 'usage: ./build.sh [osx|linux]'
+        echo 'usage: ./build.sh [osx|bsd|linux]'
         exit 1
 esac
 
